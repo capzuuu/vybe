@@ -79,14 +79,13 @@ CORS is also pre-configured on FastAPI for development convenience.
 
 ---
 
-## Connecting Frontend to Backend (Optional)
+## Live Deployment
 
-If you host the backend on Render or Railway, simply add this rewrite rule in `frontend/vercel.json`:
+- **Frontend (Vercel)**: Deployed from `frontend/` directory with automatic SPA rewrites
+- **Backend (Render)**: [https://vybe-k8e2.onrender.com](https://vybe-k8e2.onrender.com)
+  - API Health Check: [https://vybe-k8e2.onrender.com/health](https://vybe-k8e2.onrender.com/health)
+  - Swagger Documentation: [https://vybe-k8e2.onrender.com/docs](https://vybe-k8e2.onrender.com/docs)
+  - Interactive ReDoc: [https://vybe-k8e2.onrender.com/redoc](https://vybe-k8e2.onrender.com/redoc)
 
-```json
-{
-  "source": "/api/:path*",
-  "destination": "https://your-backend-url.onrender.com/api/:path*"
-}
-```
+All `/api/*` frontend calls on Vercel are automatically proxied to the live Render backend via `vercel.json`.
 
