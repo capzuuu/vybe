@@ -18,19 +18,60 @@ export class ErrorBoundary extends Component<Props, State> {
   };
 
   public static getDerivedStateFromError(error: Error): State {
+    // Detect stale chunk load error from new deployment (Vite code splitting)
+    const isChunkError =
+      error?.message?.includes('Failed to fetch dynamically imported module') ||
+      error?.message?.includes('error loading dynamically imported module') ||
+      error?.message?.includes('Importing a module script failed') ||
+      error?.message?.includes('failed to fetch') ||
+      error?.name === 'ChunkLoadError';
+
+    if (isChunkError && typeof window !== 'undefined') {
+      const lastReload = window.sessionStorage.getItem('vybe_chunk_reload');
+      const now = Date.now();
+      // Auto-reload once to fetch new deployment assets without showing an error screen
+      if (!lastReload || now - parseInt(lastReload, 10) > 10000) {
+        window.sessionStorage.setItem('vybe_chunk_reload', now.toString());
+        window.location.reload();
+        return { hasError: false, error: null };
+      }
+    }
+
     return { hasError: true, error };
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('[Vybe ErrorBoundary] Uncaught render exception:', error, errorInfo);
+
+    const isChunkError =
+      error?.message?.includes('Failed to fetch dynamically imported module') ||
+      error?.message?.includes('error loading dynamically imported module') ||
+      error?.message?.includes('Importing a module script failed') ||
+      error?.message?.includes('failed to fetch') ||
+      error?.name === 'ChunkLoadError';
+
+    if (isChunkError && typeof window !== 'undefined') {
+      const lastReload = window.sessionStorage.getItem('vybe_chunk_reload');
+      const now = Date.now();
+      if (!lastReload || now - parseInt(lastReload, 10) > 10000) {
+        window.sessionStorage.setItem('vybe_chunk_reload', now.toString());
+        window.location.reload();
+      }
+    }
   }
 
   private handleReset = () => {
+    try {
+      window.sessionStorage.removeItem('vybe_chunk_reload');
+    } catch {}
     this.setState({ hasError: false, error: null });
     window.location.reload();
   };
 
   private handleGoHome = () => {
+    try {
+      window.sessionStorage.removeItem('vybe_chunk_reload');
+    } catch {}
     this.setState({ hasError: false, error: null });
     window.location.href = '/';
   };

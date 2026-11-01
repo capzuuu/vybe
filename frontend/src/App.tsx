@@ -14,21 +14,55 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { PageLoader } from './components/PageLoader';
 import './styles/global.css';
 
+/**
+ * Automatically catches stale chunk errors after new Vercel deployments.
+ * If a deployment replaces chunk hashes, browsers that haven't refreshed index.html
+ * might request 404 chunks. This intercepts the dynamic import failure, forces a quick
+ * reload to get the new deployment bundle, and prevents the "Something went wrong" crash screen.
+ */
+function lazyWithRetry<T extends React.ComponentType<any>>(
+  factory: () => Promise<{ default: T }>
+) {
+  return lazy(async () => {
+    const isRetry = window.sessionStorage.getItem('vybe_chunk_retry') === 'true';
+
+    try {
+      const module = await factory();
+      window.sessionStorage.setItem('vybe_chunk_retry', 'false');
+      return module;
+    } catch (error: any) {
+      const isDynamicImportError =
+        error?.message?.includes('dynamically imported') ||
+        error?.message?.includes('Importing a module script failed') ||
+        error?.message?.includes('failed to fetch') ||
+        error?.name === 'ChunkLoadError';
+
+      if (!isRetry || isDynamicImportError) {
+        window.sessionStorage.setItem('vybe_chunk_retry', 'true');
+        window.location.reload();
+        return new Promise<{ default: T }>(() => {});
+      }
+
+      throw error;
+    }
+  });
+}
+
 // ── Lazy-Loaded Code-Split Routes (Speeds up initial FCP by 75%) ────
-const Home = lazy(() => import('./pages/Home').then((m) => ({ default: m.Home })));
-const TVShows = lazy(() => import('./pages/TVShows').then((m) => ({ default: m.TVShows })));
-const Movies = lazy(() => import('./pages/Movies').then((m) => ({ default: m.Movies })));
-const NewPopular = lazy(() => import('./pages/NewPopular').then((m) => ({ default: m.NewPopular })));
-const CommunityPage = lazy(() => import('./pages/CommunityPage').then((m) => ({ default: m.CommunityPage })));
-const MyList = lazy(() => import('./pages/MyList').then((m) => ({ default: m.MyList })));
-const SearchPage = lazy(() => import('./pages/SearchPage').then((m) => ({ default: m.SearchPage })));
-const BrowseLanguages = lazy(() => import('./pages/BrowseLanguages').then((m) => ({ default: m.BrowseLanguages })));
-const Watch = lazy(() => import('./pages/Watch').then((m) => ({ default: m.Watch })));
-const Profiles = lazy(() => import('./pages/Profiles').then((m) => ({ default: m.Profiles })));
-const Account = lazy(() => import('./pages/Account').then((m) => ({ default: m.Account })));
-const Settings = lazy(() => import('./pages/Settings').then((m) => ({ default: m.Settings })));
-const HelpCenter = lazy(() => import('./pages/HelpCenter').then((m) => ({ default: m.HelpCenter })));
-const Login = lazy(() => import('./pages/Login').then((m) => ({ default: m.Login })));
+const Home = lazyWithRetry(() => import('./pages/Home').then((m) => ({ default: m.Home })));
+const TVShows = lazyWithRetry(() => import('./pages/TVShows').then((m) => ({ default: m.TVShows })));
+const Movies = lazyWithRetry(() => import('./pages/Movies').then((m) => ({ default: m.Movies })));
+const NewPopular = lazyWithRetry(() => import('./pages/NewPopular').then((m) => ({ default: m.NewPopular })));
+const CommunityPage = lazyWithRetry(() => import('./pages/CommunityPage').then((m) => ({ default: m.CommunityPage })));
+const MyList = lazyWithRetry(() => import('./pages/MyList').then((m) => ({ default: m.MyList })));
+const SearchPage = lazyWithRetry(() => import('./pages/SearchPage').then((m) => ({ default: m.SearchPage })));
+const BrowseLanguages = lazyWithRetry(() => import('./pages/BrowseLanguages').then((m) => ({ default: m.BrowseLanguages })));
+const Watch = lazyWithRetry(() => import('./pages/Watch').then((m) => ({ default: m.Watch })));
+const Profiles = lazyWithRetry(() => import('./pages/Profiles').then((m) => ({ default: m.Profiles })));
+const Account = lazyWithRetry(() => import('./pages/Account').then((m) => ({ default: m.Account })));
+const Settings = lazyWithRetry(() => import('./pages/Settings').then((m) => ({ default: m.Settings })));
+const HelpCenter = lazyWithRetry(() => import('./pages/HelpCenter').then((m) => ({ default: m.HelpCenter })));
+const Login = lazyWithRetry(() => import('./pages/Login').then((m) => ({ default: m.Login })));
 
 /**
  * Open Layout for catalog browsing: allows guests and authenticated users
