@@ -76,6 +76,20 @@ export class ErrorBoundary extends Component<Props, State> {
     window.location.href = '/';
   };
 
+  private handleClearStorageAndReload = () => {
+    try {
+      window.sessionStorage.clear();
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && (k.startsWith('vybe:') || k.startsWith('tmdb:'))) {
+          localStorage.removeItem(k);
+        }
+      }
+    } catch {}
+    this.setState({ hasError: false, error: null });
+    window.location.href = '/';
+  };
+
   public render() {
     if (this.state.hasError) {
       if (this.props.fallback) {
@@ -98,7 +112,7 @@ export class ErrorBoundary extends Component<Props, State> {
         >
           <div
             style={{
-              maxWidth: '480px',
+              maxWidth: '520px',
               backgroundColor: 'rgba(24, 24, 27, 0.95)',
               border: '1px solid rgba(255, 255, 255, 0.1)',
               borderRadius: '12px',
@@ -125,11 +139,38 @@ export class ErrorBoundary extends Component<Props, State> {
             <h1 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.75rem' }}>
               Something went wrong
             </h1>
-            <p style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: '0.9rem', lineHeight: 1.5, marginBottom: '2rem' }}>
+            <p style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: '0.9rem', lineHeight: 1.5, marginBottom: '1.5rem' }}>
               An unexpected error occurred. Don't worry, your watch progress and profile are safe.
             </p>
 
-            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+            {this.state.error && (
+              <details
+                style={{
+                  textAlign: 'left',
+                  margin: '0 0 1.75rem 0',
+                  background: 'rgba(0, 0, 0, 0.55)',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  borderRadius: '8px',
+                  padding: '0.75rem 1rem',
+                  fontSize: '0.8rem',
+                  color: '#f87171',
+                }}
+              >
+                <summary style={{ cursor: 'pointer', fontWeight: 600, color: 'rgba(255, 255, 255, 0.8)', outline: 'none' }}>
+                  Technical Details (Click to show error)
+                </summary>
+                <div style={{ wordBreak: 'break-all', fontFamily: 'monospace', marginTop: '0.65rem', whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>
+                  <strong>{this.state.error.name}:</strong> {this.state.error.message}
+                  {this.state.error.stack && (
+                    <div style={{ marginTop: '0.5rem', opacity: 0.7, fontSize: '0.72rem', color: '#cbd5e1' }}>
+                      {this.state.error.stack.split('\n').slice(0, 4).join('\n')}
+                    </div>
+                  )}
+                </div>
+              </details>
+            )}
+
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
               <button
                 type="button"
                 onClick={this.handleReset}
@@ -170,6 +211,27 @@ export class ErrorBoundary extends Component<Props, State> {
               >
                 <Home size={16} />
                 <span>Back to Home</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={this.handleClearStorageAndReload}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  backgroundColor: 'transparent',
+                  color: 'rgba(255, 255, 255, 0.6)',
+                  border: '1px dashed rgba(255, 255, 255, 0.25)',
+                  borderRadius: '6px',
+                  padding: '0.65rem 1rem',
+                  fontWeight: 600,
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                }}
+                title="Clears corrupted local cache and restarts fresh"
+              >
+                <span>Reset Local Cache</span>
               </button>
             </div>
           </div>

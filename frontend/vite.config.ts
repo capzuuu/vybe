@@ -17,9 +17,6 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
-    esbuild: {
-      drop: isProd ? ['console', 'debugger'] : [],
-    },
     build: {
       target: 'esnext',
       cssCodeSplit: true,

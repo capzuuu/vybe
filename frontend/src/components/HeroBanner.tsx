@@ -43,7 +43,7 @@ export function HeroBanner({ titles }: HeroBannerProps) {
 
   // Handle trailer video autoplay
   useEffect(() => {
-    if (isPlayingTrailer && videoRef.current) {
+    if (isPlayingTrailer && videoRef.current && title) {
       videoRef.current.currentTime = title.trailerStart || 0;
       videoRef.current.play().catch(() => {
         // Autoplay policy or error - keep backdrop

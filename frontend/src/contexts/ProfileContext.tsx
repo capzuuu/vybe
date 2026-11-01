@@ -35,81 +35,123 @@ const emptyData = (): ProfileData => ({
 });
 
 /**
+ * Validates and sanitizes raw state from localStorage or network to guarantee
+ * that profiles, activeId, and per-profile library arrays always exist and are safe.
+ */
+function sanitizePersistedState(stored: any): PersistedState {
+  const defaultAlex: Profile[] = [{ id: 'p-alex', name: 'Alex', avatar: 0, kids: false }];
+  if (!stored || typeof stored !== 'object') {
+    return {
+      profiles: defaultAlex,
+      activeId: defaultAlex[0].id,
+      data: { 'p-alex': emptyData() },
+    };
+  }
+
+  const profiles: Profile[] =
+    Array.isArray(stored.profiles) && stored.profiles.length > 0
+      ? stored.profiles.map((p: any, idx: number) => ({
+          id: p?.id || `p-${idx}`,
+          name: p?.name || 'Alex',
+          avatar: typeof p?.avatar === 'number' ? p.avatar : 0,
+          kids: !!p?.kids,
+        }))
+      : defaultAlex;
+
+  const activeId =
+    stored.activeId && profiles.some((p) => p.id === stored.activeId)
+      ? stored.activeId
+      : profiles[0].id;
+
+  const rawData = stored.data && typeof stored.data === 'object' ? stored.data : {};
+  const data: Record<string, ProfileData> = {};
+
+  for (const p of profiles) {
+    const d = rawData[p.id];
+    data[p.id] = {
+      myList: Array.isArray(d?.myList) ? d.myList.filter(Boolean) : [],
+      likes: Array.isArray(d?.likes) ? d.likes.filter(Boolean) : [],
+      progress: Array.isArray(d?.progress) ? d.progress.filter((x: any) => x && x.titleId) : [],
+      readNotifications: Array.isArray(d?.readNotifications) ? d.readNotifications.filter(Boolean) : [],
+    };
+  }
+
+  return { profiles, activeId, data };
+}
+
+/**
  * Loads the initial state for the given user:
  * 1. From user-specific localStorage cache
  * 2. From user_metadata in Supabase auth
  * 3. Fallback: Exactly 1 profile named Alex with empty data
  */
 function loadInitialState(user: any): PersistedState {
-  const defaultAlex: Profile[] = [{ id: 'p-alex', name: 'Alex', avatar: 0, kids: false }];
-
   // 1. Check user-specific localStorage
   const userKey = user?.id ? `vybe:user:${user.id}` : 'vybe:user:guest';
-  const stored = readJSON<PersistedState | null>(userKey, null);
-  if (stored?.profiles?.length) {
-    return stored;
+  const stored = readJSON<any>(userKey, null);
+  if (stored) {
+    return sanitizePersistedState(stored);
   }
 
   // 2. Check user.user_metadata if available from Supabase Auth
   if (user?.user_metadata?.vybe_profiles?.length) {
-    const profiles = user.user_metadata.vybe_profiles as Profile[];
-    const activeId =
-      user.user_metadata.vybe_active_id && profiles.some((p) => p.id === user.user_metadata.vybe_active_id)
-        ? user.user_metadata.vybe_active_id
-        : profiles[0]?.id || 'p-alex';
-    const data = (user.user_metadata.vybe_data as Record<string, ProfileData>) || {};
-    return {
-      profiles,
-      activeId,
-      data,
-    };
+    return sanitizePersistedState({
+      profiles: user.user_metadata.vybe_profiles,
+      activeId: user.user_metadata.vybe_active_id,
+      data: user.user_metadata.vybe_data,
+    });
   }
 
-  // 3. Default for new account: Exactly 1 profile named Alex with empty data
-  return {
-    profiles: defaultAlex,
-    activeId: defaultAlex[0].id,
-    data: {
-      'p-alex': emptyData(),
-    },
-  };
+  // 3. Clean default
+  return sanitizePersistedState(null);
 }
 
 /**
  * Cleanly merges local and remote Supabase state without erasing any data
  */
 function mergeRemoteAndLocal(local: PersistedState, remote: RemoteLibraryResult): PersistedState {
+  const safeLocal = sanitizePersistedState(local);
+  const safeRemoteData = remote?.data && typeof remote.data === 'object' ? remote.data : {};
+  const safeRemoteProfiles = Array.isArray(remote?.profiles) ? remote.profiles : [];
+
   // 1. Merge profiles
   const profileMap = new Map<string, Profile>();
-  if (remote.profiles.length > 0) {
-    remote.profiles.forEach((p) => profileMap.set(p.id, p));
-  }
-  local.profiles.forEach((p) => {
-    if (!profileMap.has(p.id)) profileMap.set(p.id, p);
+  safeRemoteProfiles.forEach((p) => {
+    if (p?.id) profileMap.set(p.id, p);
   });
+  safeLocal.profiles.forEach((p) => {
+    if (p?.id && !profileMap.has(p.id)) profileMap.set(p.id, p);
+  });
+
   const profiles = Array.from(profileMap.values());
   if (profiles.length === 0) {
     profiles.push({ id: 'p-alex', name: 'Alex', avatar: 0, kids: false });
   }
 
   const activeId =
-    local.activeId && profiles.some((p) => p.id === local.activeId)
-      ? local.activeId
-      : remote.activeId && profiles.some((p) => p.id === remote.activeId)
+    safeLocal.activeId && profiles.some((p) => p.id === safeLocal.activeId)
+      ? safeLocal.activeId
+      : remote?.activeId && profiles.some((p) => p.id === remote.activeId)
       ? remote.activeId
       : profiles[0].id;
 
   // 2. Merge library data per profile
   const allPids = new Set<string>([
-    ...Object.keys(local.data),
-    ...Object.keys(remote.data),
+    ...Object.keys(safeLocal.data),
+    ...Object.keys(safeRemoteData),
     ...profiles.map((p) => p.id),
   ]);
   const mergedData: Record<string, ProfileData> = {};
 
   for (const pid of allPids) {
-    const loc = local.data[pid] ?? emptyData();
-    const rem = remote.data[pid] ?? emptyData();
+    const loc = safeLocal.data[pid] ?? emptyData();
+    const rawRem = safeRemoteData[pid];
+    const rem: ProfileData = {
+      myList: Array.isArray(rawRem?.myList) ? rawRem.myList : [],
+      likes: Array.isArray(rawRem?.likes) ? rawRem.likes : [],
+      progress: Array.isArray(rawRem?.progress) ? rawRem.progress : [],
+      readNotifications: Array.isArray(rawRem?.readNotifications) ? rawRem.readNotifications : [],
+    };
 
     // Merge My List (preserve unique IDs)
     const myList = Array.from(new Set([...loc.myList, ...rem.myList]));
@@ -119,14 +161,20 @@ function mergeRemoteAndLocal(local: PersistedState, remote: RemoteLibraryResult)
 
     // Merge Progress (preserve latest watched timestamp)
     const progressMap = new Map<string, ProgressEntry>();
-    rem.progress.forEach((p) => progressMap.set(p.titleId, p));
+    rem.progress.forEach((p) => {
+      if (p?.titleId) progressMap.set(p.titleId, p);
+    });
     loc.progress.forEach((p) => {
-      const existing = progressMap.get(p.titleId);
-      if (!existing || p.updatedAt >= existing.updatedAt) {
-        progressMap.set(p.titleId, p);
+      if (p?.titleId) {
+        const existing = progressMap.get(p.titleId);
+        if (!existing || (p.updatedAt || 0) >= (existing.updatedAt || 0)) {
+          progressMap.set(p.titleId, p);
+        }
       }
     });
-    const progress = Array.from(progressMap.values()).sort((a, b) => b.updatedAt - a.updatedAt);
+    const progress = Array.from(progressMap.values()).sort(
+      (a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)
+    );
 
     // Merge read notifications
     const readNotifications = Array.from(
@@ -241,7 +289,9 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
       if (e.key === storageKey && e.newValue) {
-        setState(JSON.parse(e.newValue));
+        try {
+          setState(sanitizePersistedState(JSON.parse(e.newValue)));
+        } catch {}
       }
     };
     window.addEventListener('storage', onStorage);
@@ -251,7 +301,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   // Active Profile & Per-Profile Data Isolation
   const activeProfile =
     state.profiles.find((p) => p.id === state.activeId) ?? state.profiles[0] ?? null;
-  const activeData = (activeProfile && state.data[activeProfile.id]) || emptyData();
+  const activeData = (activeProfile && state?.data?.[activeProfile.id]) || emptyData();
 
   // Always-current snapshot for callbacks
   const latest = useRef<ProfileData>(emptyData());
@@ -260,13 +310,14 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const updateActive = useCallback(
     (fn: (d: ProfileData) => ProfileData) => {
       setState((s) => {
-        const currentActiveId = s.activeId || s.profiles[0]?.id;
-        if (!currentActiveId) return s;
-        const current = s.data[currentActiveId] ?? emptyData();
+        const safe = sanitizePersistedState(s);
+        const currentActiveId = safe.activeId || safe.profiles[0]?.id;
+        if (!currentActiveId) return safe;
+        const current = safe.data[currentActiveId] ?? emptyData();
         return {
-          ...s,
+          ...safe,
           data: {
-            ...s.data,
+            ...safe.data,
             [currentActiveId]: fn(current),
           },
         };

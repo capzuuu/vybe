@@ -49,20 +49,20 @@ const byType = (titles: Title[], type?: TitleType) =>
   type ? titles.filter((t) => t.type === type) : titles;
 
 export const sortBy = {
-  popularity: (a: Title, b: Title) => b.popularity - a.popularity,
-  trend: (a: Title, b: Title) => b.trend - a.trend,
-  rating: (a: Title, b: Title) => b.rating - a.rating,
-  newest: (a: Title, b: Title) => +new Date(b.addedAt) - +new Date(a.addedAt),
-  year: (a: Title, b: Title) => b.year - a.year || b.popularity - a.popularity,
-  match: (a: Title, b: Title) => b.match - a.match,
-  az: (a: Title, b: Title) => a.name.localeCompare(b.name),
-  za: (a: Title, b: Title) => b.name.localeCompare(a.name),
+  popularity: (a: Title, b: Title) => (b?.popularity || 0) - (a?.popularity || 0),
+  trend: (a: Title, b: Title) => (b?.trend || 0) - (a?.trend || 0),
+  rating: (a: Title, b: Title) => (b?.rating || 0) - (a?.rating || 0),
+  newest: (a: Title, b: Title) => (+new Date(b?.addedAt || b?.year || 0) || 0) - (+new Date(a?.addedAt || a?.year || 0) || 0),
+  year: (a: Title, b: Title) => (b?.year || 0) - (a?.year || 0) || (b?.popularity || 0) - (a?.popularity || 0),
+  match: (a: Title, b: Title) => (b?.match || 0) - (a?.match || 0),
+  az: (a: Title, b: Title) => (a?.name || '').localeCompare(b?.name || ''),
+  za: (a: Title, b: Title) => (b?.name || '').localeCompare(a?.name || ''),
 };
 
 export function featured(titles: Title[], type?: TitleType, count = 5): Title[] {
   const pool = byType(titles, type);
-  const picks = pool.filter((t) => t.featured).sort(sortBy.popularity);
-  const rest = pool.filter((t) => !t.featured).sort(sortBy.popularity);
+  const picks = pool.filter((t) => t?.featured).sort(sortBy.popularity);
+  const rest = pool.filter((t) => !t?.featured).sort(sortBy.popularity);
   return [...picks, ...rest].slice(0, count);
 }
 
@@ -79,29 +79,44 @@ export const newReleases = (titles: Title[], type?: TitleType) =>
   byType(titles, type).sort(sortBy.newest).slice(0, 18);
 
 export const byGenre = (titles: Title[], genre: string) =>
-  titles.filter((t) => t.genres.some((g: string) => g.toLowerCase() === genre.toLowerCase())).sort(sortBy.popularity);
+  titles
+    .filter(
+      (t) =>
+        Array.isArray(t?.genres) &&
+        t.genres.some((g: string) => typeof g === 'string' && g.toLowerCase() === genre.toLowerCase())
+    )
+    .sort(sortBy.popularity);
 
 /** Personalised ranking: match score boosted by genres the profile has liked or saved. */
 export function recommended(titles: Title[], preferred: Title[], type?: TitleType): Title[] {
   const weights = new Map<string, number>();
-  preferred.forEach((t) => t.genres.forEach((g: string) => weights.set(g, (weights.get(g) ?? 0) + 1)));
-  const seen = new Set(preferred.map((t) => t.id));
-  const score = (t: Title) => t.match + t.genres.reduce((s: number, g: string) => s + (weights.get(g) ?? 0) * 4, 0);
+  preferred.forEach((t) => {
+    if (Array.isArray(t?.genres)) {
+      t.genres.forEach((g: string) => weights.set(g, (weights.get(g) ?? 0) + 1));
+    }
+  });
+  const seen = new Set(preferred.map((t) => t?.id).filter(Boolean));
+  const score = (t: Title) =>
+    (t?.match || 0) +
+    (Array.isArray(t?.genres)
+      ? t.genres.reduce((s: number, g: string) => s + (weights.get(g) ?? 0) * 4, 0)
+      : 0);
   return byType(titles, type)
-    .filter((t) => !seen.has(t.id))
+    .filter((t) => t?.id && !seen.has(t.id))
     .sort((a, b) => score(b) - score(a))
     .slice(0, 18);
 }
 
 export function similar(titles: Title[], title: Title, count = 12): Title[] {
+  const titleGenres = Array.isArray(title?.genres) ? title.genres : [];
   const overlap = (t: Title) =>
-    t.genres.filter((g: string) => title.genres.includes(g)).length * 3 +
-    (t.type === title.type ? 1 : 0);
+    (Array.isArray(t?.genres) ? t.genres.filter((g: string) => titleGenres.includes(g)).length : 0) * 3 +
+    (t?.type === title?.type ? 1 : 0);
   return titles
-    .filter((t) => t.id !== title.id)
+    .filter((t) => t?.id && t.id !== title?.id)
     .map((t) => ({ t, s: overlap(t) }))
     .filter(({ s }) => s > 0)
-    .sort((a, b) => b.s - a.s || b.t.match - a.t.match)
+    .sort((a, b) => b.s - a.s || (b.t?.match || 0) - (a.t?.match || 0))
     .slice(0, count)
     .map(({ t }) => t);
 }
