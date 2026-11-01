@@ -1,0 +1,692 @@
+.footer {
+  background-color: var(--c-bg);
+  color: var(--c-text-3);
+  padding: 4.5rem var(--gutter) calc(var(--bottom-nav-h) + 3rem);
+  font-size: 0.8rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.footer__inner {
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+.footer__socials {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+  color: var(--c-text);
+}
+
+.footer__social-link {
+  color: var(--c-text);
+  transition: opacity var(--dur-fast);
+}
+
+.footer__social-link:hover {
+  opacity: 0.75;
+}
+
+.footer__links {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.75rem;
+  padding: 0;
+  list-style: none;
+}
+
+.footer__links a,
+.footer__links button.footer__link-btn {
+  color: var(--c-text-3);
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 0.8rem;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: color var(--dur-fast);
+}
+
+.footer__links a:hover,
+.footer__links button.footer__link-btn:hover {
+  text-decoration: underline;
+  color: var(--c-text-2);
+}
+
+.footer__service {
+  margin-bottom: 1.5rem;
+}
+
+.footer__service-btn {
+  border: 1px solid var(--c-text-3);
+  padding: 0.45rem 0.75rem;
+  color: var(--c-text-3);
+  font-size: 0.75rem;
+  background: transparent;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: color var(--dur-fast), border-color var(--dur-fast);
+}
+
+.footer__service-btn:hover {
+  color: var(--c-text);
+  border-color: var(--c-text);
+}
+
+.footer__copyright {
+  font-size: 0.7rem;
+  color: var(--c-text-3);
+}
+
+/* ── Minimalist Inline Donation: "Do you like the app? Donate (G))" ─── */
+
+.footer__donate-simple-wrapper {
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+}
+
+.footer__donate-simple {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: transparent;
+  border: none;
+  padding: 0.25rem 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85rem;
+  color: var(--c-text-3, #808080);
+  transition: color var(--dur-fast);
+}
+
+.footer__donate-simple:hover {
+  color: #ffffff;
+}
+
+.footer__donate-simple:hover .footer__donate-simple-text {
+  text-decoration: underline;
+}
+
+.footer__donate-simple:hover .footer__gcash-inline-logo {
+  transform: scale(1.15);
+}
+
+.footer__gcash-inline-logo {
+  height: 20px;
+  width: auto;
+  display: inline-block;
+  vertical-align: middle;
+  transition: transform var(--dur-fast);
+}
+
+/* ── Mobile Responsive Footer Centering ──────────────────────────────── */
+
+@media (max-width: 768px) {
+  .footer {
+    text-align: center;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+
+  .footer__inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .footer__socials {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .footer__links {
+    grid-template-columns: repeat(2, 1fr);
+    justify-items: center;
+    align-items: center;
+    text-align: center;
+    width: 100%;
+    max-width: 480px;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 0;
+    gap: 0.875rem 1rem;
+  }
+
+  .footer__links li {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    width: 100%;
+  }
+
+  .footer__links a,
+  .footer__links button.footer__link-btn {
+    text-align: center !important;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+  }
+
+  .footer__donate-simple-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
+  }
+
+  .footer__donate-simple {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    margin: 0 auto;
+  }
+
+  .footer__service {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    text-align: center;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .footer__copyright {
+    text-align: center;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .footer {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .footer__links {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.85rem 0.5rem;
+    max-width: 100%;
+  }
+}
+
+/* ── Compact Donate Modal (Exact match to reference) ─────────────────── */
+
+.donate-compact-modal {
+  background: #18181a;
+  color: var(--c-text);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  width: min(92vw, 380px);
+  padding: 1.5rem 1.5rem 1.25rem;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  box-sizing: border-box;
+  animation: footerPopIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.donate-compact-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 0.85rem;
+}
+
+.donate-compact-modal__title {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+}
+
+.donate-compact-modal__gcash-logo {
+  height: 24px;
+  width: auto;
+  display: block;
+}
+
+.donate-compact-modal__close {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #27272a;
+  border: none;
+  color: #a1a1aa;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.donate-compact-modal__close:hover {
+  background: #3f3f46;
+  color: #ffffff;
+  transform: scale(1.05);
+}
+
+.donate-compact-modal__desc {
+  font-size: 0.825rem;
+  line-height: 1.45;
+  color: #9ca3af;
+  margin: 0 auto 1.15rem;
+  max-width: 310px;
+}
+
+.donate-compact-modal__qr-card {
+  background: #ffffff;
+  padding: 12px;
+  border-radius: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  margin-bottom: 0.9rem;
+}
+
+.donate-compact-modal__qr-image {
+  width: min(65vw, 240px);
+  height: min(65vw, 240px);
+  object-fit: contain;
+  border-radius: 8px;
+  display: block;
+}
+
+.donate-compact-modal__thanks {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  color: #007CFF;
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.donate-compact-modal__heart {
+  flex-shrink: 0;
+}
+
+.donate-compact-modal__divider {
+  width: 100%;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin-bottom: 0.95rem;
+}
+
+.donate-compact-modal__socials {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+}
+
+.donate-compact-modal__social-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #27272a;
+  border: none;
+  color: #a1a1aa;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.donate-compact-modal__social-btn:hover {
+  background: #3f3f46;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+/* ── Interactive Footer Modals ───────────────────────────────────────── */
+
+.footer-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  animation: footerFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.footer-modal {
+  background: #181818;
+  color: var(--c-text);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  width: min(94vw, 680px);
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85);
+  overflow: hidden;
+  animation: footerPopIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes footerFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes footerPopIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.footer-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: #1f1f1f;
+}
+
+.footer-modal__title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0;
+  color: #fff;
+}
+
+.footer-modal__title-icon {
+  color: var(--c-primary, #e50914);
+}
+
+.footer-modal__close {
+  background: transparent;
+  border: none;
+  color: var(--c-text-3);
+  cursor: pointer;
+  padding: 0.4rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.footer-modal__close:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.footer-modal__body {
+  padding: 1.5rem;
+  overflow-y: auto;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--c-text-2);
+}
+
+.footer-modal__body h3 {
+  color: #fff;
+  font-size: 1.05rem;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.footer-modal__body h3:first-child {
+  margin-top: 0;
+}
+
+.footer-modal__body p {
+  margin-bottom: 1rem;
+}
+
+.footer-modal__body ul {
+  padding-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.footer-modal__body li {
+  margin-bottom: 0.35rem;
+}
+
+.footer-modal__badge {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  background: rgba(229, 9, 20, 0.15);
+  color: #ff4d58;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.footer-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: #141414;
+}
+
+/* Form inputs inside modals */
+.footer-modal__input,
+.footer-modal__textarea,
+.footer-modal__select {
+  width: 100%;
+  background: #242424;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+  outline: none;
+  transition: border-color var(--dur-fast);
+}
+
+.footer-modal__input:focus,
+.footer-modal__textarea:focus,
+.footer-modal__select:focus {
+  border-color: var(--c-primary, #e50914);
+}
+
+.footer-modal__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 600px) {
+  .footer-modal__row {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}
+
+/* Cookie switches */
+.cookie-card {
+  background: #222;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.cookie-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.35rem;
+}
+
+.cookie-card__title {
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.cookie-card__desc {
+  font-size: 0.85rem;
+  color: var(--c-text-3);
+  margin: 0;
+}
+
+.cookie-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.cookie-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.cookie-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: #3e3e3e;
+  transition: 0.2s;
+  border-radius: 24px;
+}
+
+.cookie-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.2s;
+  border-radius: 50%;
+}
+
+input:checked + .cookie-slider {
+  background-color: var(--c-primary, #e50914);
+}
+
+input:checked + .cookie-slider:before {
+  transform: translateX(20px);
+}
+
+input:disabled + .cookie-slider {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Job Cards */
+.job-item {
+  background: #222;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.job-item__title {
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-bottom: 0.25rem;
+}
+
+.job-item__meta {
+  font-size: 0.8rem;
+  color: var(--c-text-3);
+}
+
+/* Quick contact boxes */
+.contact-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 600px) {
+  .contact-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.contact-card {
+  background: #222;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 1rem;
+  text-align: center;
+}
+
+.contact-card__icon {
+  margin-bottom: 0.5rem;
+  color: var(--c-primary, #e50914);
+}
+
+.contact-card__label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 0.25rem;
+}
+
+.contact-card__value {
+  font-size: 0.8rem;
+  color: var(--c-text-3);
+}

@@ -1,0 +1,226 @@
+/* ── Netflix Settings Page ─────────────────────────────────────── */
+
+.settings-page {
+  min-height: 80vh;
+  padding: clamp(80px, 10vw, 120px) var(--gutter) 60px;
+  max-width: 980px;
+  margin: 0 auto;
+  color: var(--c-text);
+  animation: fade-in 300ms var(--ease) both;
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #333333;
+  padding-bottom: 1.25rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.settings-header__title {
+  font-size: clamp(1.8rem, 3.5vw, 2.5rem);
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+/* Profile Summary Banner */
+.settings-profile-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #181818;
+  border: 1px solid #282828;
+  border-radius: var(--radius-sm);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.settings-profile-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.settings-profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.settings-profile-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.settings-profile-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: var(--c-accent);
+  color: #ffffff;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-xs);
+  text-transform: uppercase;
+}
+
+.settings-profile-sub {
+  font-size: 0.85rem;
+  color: var(--c-text-muted);
+}
+
+/* Sections */
+.settings-section {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  padding: 1.75rem 0;
+  border-bottom: 1px solid #282828;
+  gap: 1.5rem;
+}
+
+.settings-section__title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--c-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0;
+}
+
+.settings-section__content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Setting Rows */
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.settings-row__info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-width: 480px;
+}
+
+.settings-row__label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.settings-row__desc {
+  font-size: 0.825rem;
+  color: var(--c-text-muted);
+  line-height: 1.4;
+}
+
+/* Select Dropdown */
+.settings-select {
+  background: #242424;
+  border: 1px solid #3c3c3c;
+  color: #ffffff;
+  padding: 0.55rem 1rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  outline: none;
+  cursor: pointer;
+  min-width: 170px;
+  transition: border-color var(--dur-fast);
+}
+
+.settings-select:focus {
+  border-color: #ffffff;
+}
+
+/* Toggle Switch */
+.settings-switch {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 26px;
+  flex-shrink: 0;
+}
+
+.settings-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.settings-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #383838;
+  transition: 200ms ease;
+  border-radius: 34px;
+}
+
+.settings-slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 3px;
+  bottom: 3px;
+  background-color: #ffffff;
+  transition: 200ms ease;
+  border-radius: 50%;
+}
+
+input:checked + .settings-slider {
+  background-color: var(--c-accent);
+}
+
+input:checked + .settings-slider:before {
+  transform: translateX(22px);
+}
+
+/* Danger / Clear Buttons */
+.btn-danger-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: transparent;
+  color: #ff6b72;
+  border: 1px solid rgba(255, 77, 79, 0.4);
+  padding: 0.55rem 1.15rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--dur-fast);
+}
+
+.btn-danger-outline:hover {
+  background: rgba(255, 77, 79, 0.12);
+  border-color: #ff4d4f;
+  color: #ffffff;
+}
+
+@media (max-width: 768px) {
+  .settings-section {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+}
+

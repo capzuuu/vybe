@@ -1,0 +1,173 @@
+.carousel-row {
+  margin-bottom: var(--row-space);
+  position: relative;
+  z-index: var(--z-row);
+}
+
+.carousel-row__title {
+  padding: 0 var(--gutter);
+  margin-bottom: 0.85rem;
+  font-size: var(--fs-row);
+  font-weight: 700;
+  color: var(--c-text-soft);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  transition: color var(--dur-fast);
+}
+
+.carousel-row__title:hover {
+  color: #fff;
+}
+
+.carousel-row__title-icon {
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity var(--dur-fast), transform var(--dur-fast);
+}
+
+.carousel-row__title:hover .carousel-row__title-icon {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.carousel-row__container {
+  position: relative;
+  width: 100%;
+}
+
+.carousel-row__track {
+  display: flex;
+  gap: var(--card-gap);
+  padding: 0 var(--gutter);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  scroll-snap-type: x mandatory;
+}
+
+.carousel-row__track::-webkit-scrollbar {
+  display: none;
+}
+
+.carousel-row__track > * {
+  scroll-snap-align: start;
+}
+
+/* ── Carousel Arrows ─────────────────────────────────────── */
+
+.carousel-arrow {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: var(--gutter);
+  background: rgba(20, 20, 20, 0.5);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  z-index: 10;
+  opacity: 0;
+  cursor: pointer;
+  transition: background var(--dur-fast), opacity var(--dur-fast);
+}
+
+.carousel-row:hover .carousel-arrow {
+  opacity: 1;
+}
+
+.carousel-arrow:hover {
+  background: rgba(20, 20, 20, 0.85);
+}
+
+.carousel-arrow--left {
+  left: 0;
+  border-top-right-radius: var(--radius-sm);
+  border-bottom-right-radius: var(--radius-sm);
+}
+
+.carousel-arrow--right {
+  right: 0;
+  border-top-left-radius: var(--radius-sm);
+  border-bottom-left-radius: var(--radius-sm);
+}
+
+@media (max-width: 639px) {
+  .carousel-arrow {
+    display: none;
+  }
+}
+
+/* ── Top 10 Layout ───────────────────────────────────────── */
+
+.top-ten-row {
+  margin-top: calc(var(--row-space) * 0.5);
+}
+
+.top-ten-track {
+  gap: clamp(8px, 1.2vw, 18px);
+}
+
+.top-ten-card {
+  position: relative;
+  flex: 0 0 clamp(160px, 16vw, 240px);
+  height: clamp(200px, 20vw, 310px);
+  display: flex;
+  align-items: flex-end;
+  cursor: pointer;
+  outline: none;
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.top-ten-card:hover {
+  transform: scale(1.05);
+  z-index: 5;
+}
+
+.top-ten-card__number {
+  position: absolute;
+  left: -12%;
+  bottom: -4%;
+  width: 65%;
+  height: 90%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.top-ten-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.top-ten-text-stroke {
+  font-family: 'Bebas Neue', var(--font-sans);
+  font-size: 155px;
+  font-weight: 900;
+  fill: transparent;
+  stroke: #595959;
+  stroke-width: 5px;
+}
+
+.top-ten-text-fill {
+  font-family: 'Bebas Neue', var(--font-sans);
+  font-size: 155px;
+  font-weight: 900;
+  fill: #000;
+}
+
+.top-ten-card__art {
+  position: relative;
+  margin-left: auto;
+  width: 60%;
+  height: 100%;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background-color: var(--c-card);
+  z-index: 2;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.6);
+}
+

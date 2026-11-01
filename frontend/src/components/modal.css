@@ -1,0 +1,450 @@
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: var(--z-modal);
+  overflow-y: auto;
+  display: flex;
+  justify-content: center;
+  padding: clamp(1rem, 3vh, 2.5rem) 0;
+  backdrop-filter: blur(4px);
+  animation: fade-in 200ms var(--ease);
+}
+
+.modal-container {
+  position: relative;
+  width: min(92vw, 860px);
+  background: var(--c-bg-2);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.9);
+  animation: modal-scale 240ms var(--ease);
+  margin: auto 0;
+}
+
+@keyframes modal-scale {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.modal-close-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 10;
+  background: #181818;
+  border-color: transparent;
+}
+
+.modal-close-btn:hover {
+  background: #2a2a2a;
+}
+
+/* ── Modal Top Hero ──────────────────────────────────────── */
+
+.modal-hero {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background-color: var(--c-card);
+  overflow: hidden;
+}
+
+.modal-hero__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: opacity 400ms var(--ease);
+}
+
+.modal-hero__img.hidden {
+  opacity: 0;
+}
+
+.modal-hero__video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.modal-hero__gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(24, 24, 24, 0) 40%,
+    rgba(24, 24, 24, 0.7) 75%,
+    var(--c-bg-2) 100%
+  );
+  z-index: 2;
+}
+
+.modal-hero__content {
+  position: absolute;
+  bottom: 8%;
+  left: 6%;
+  right: 6%;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.modal-hero__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.modal-hero__mute {
+  margin-left: auto;
+}
+
+/* ── Modal Body Content ──────────────────────────────────── */
+
+.modal-body {
+  padding: 1.5rem clamp(1.2rem, 3.5vw, 2.5rem) 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+
+.modal-info-grid {
+  display: grid;
+  grid-template-columns: 1.8fr 1fr;
+  gap: 2rem;
+}
+
+@media (max-width: 680px) {
+  .modal-info-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+}
+
+.modal-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.modal-reasons {
+  font-size: 0.8rem;
+  color: var(--c-text-3);
+  margin-bottom: 1rem;
+}
+
+.modal-synopsis-container {
+  margin-bottom: 1.25rem;
+}
+
+.modal-synopsis {
+  font-size: 1rem;
+  line-height: 1.55;
+  color: var(--c-text-soft);
+  transition: all var(--dur-fast) ease;
+}
+
+.modal-synopsis--clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.modal-synopsis-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.45rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #ffffff;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: color var(--dur-fast);
+}
+
+.modal-synopsis-toggle:hover {
+  color: var(--c-accent);
+}
+
+.synopsis-chevron {
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.synopsis-chevron.rotated {
+  transform: rotate(180deg);
+}
+
+.modal-info-right {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.modal-crew-label {
+  color: var(--c-text-3);
+}
+
+.modal-crew-value {
+  color: var(--c-text-soft);
+}
+
+/* ── Episodes Section ────────────────────────────────────── */
+
+.modal-episodes-section h2,
+.modal-similar-section h2,
+.modal-trailers-section h2,
+.modal-about-section h2 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin-bottom: 1.25rem;
+}
+
+.modal-episodes-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.modal-episodes-list {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-episode-row {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1rem 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--dur-fast);
+}
+
+.modal-episode-row:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.modal-episode-num {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--c-text-3);
+  width: 24px;
+  text-align: center;
+}
+
+.modal-episode-thumb {
+  position: relative;
+  width: 130px;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  flex-shrink: 0;
+  background-color: var(--c-card);
+}
+
+.modal-episode-play {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  transition: opacity var(--dur-fast);
+}
+
+.modal-episode-row:hover .modal-episode-play {
+  opacity: 1;
+}
+
+.modal-episode-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.modal-episode-title-row {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.modal-episode-duration {
+  color: var(--c-text-3);
+  font-size: 0.85rem;
+}
+
+.modal-episode-synopsis {
+  font-size: 0.85rem;
+  color: var(--c-text-2);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ── More Like This Grid ─────────────────────────────────── */
+
+.modal-similar-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 600px) {
+  .modal-similar-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.similar-card {
+  background: var(--c-card);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.similar-card__art {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.similar-card__duration {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(0, 0, 0, 0.75);
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 2px;
+}
+
+.similar-card__play {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  transition: opacity var(--dur-fast);
+}
+
+.similar-card__art:hover .similar-card__play {
+  opacity: 1;
+}
+
+.similar-card__info {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.similar-card__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.85rem;
+}
+
+.similar-card__synopsis {
+  font-size: 0.8rem;
+  color: var(--c-text-2);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ── Trailers & More Grid ────────────────────────────────── */
+
+.modal-trailers-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 600px) {
+  .modal-trailers-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.trailer-card {
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.trailer-card__thumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background-color: var(--c-card);
+}
+
+.trailer-card__play {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  transition: opacity var(--dur-fast);
+}
+
+.trailer-card:hover .trailer-card__play {
+  opacity: 1;
+}
+
+.trailer-card__name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--c-text-soft);
+}
+
+/* ── About This Title ────────────────────────────────────── */
+
+.modal-about-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+}
+

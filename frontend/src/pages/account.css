@@ -1,0 +1,370 @@
+/* ── Netflix Account Settings ─────────────────────────────────── */
+
+.account-page {
+  min-height: 80vh;
+  padding: clamp(80px, 10vw, 120px) var(--gutter) 60px;
+  max-width: 1020px;
+  margin: 0 auto;
+  color: var(--c-text);
+  animation: fade-in 300ms var(--ease) both;
+}
+
+.account-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #333333;
+  padding-bottom: 1.25rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.account-header__left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.account-header__title {
+  font-size: clamp(1.8rem, 3.5vw, 2.5rem);
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.account-header__member-since {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--c-text-muted);
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+}
+
+/* Account Section Rows */
+.account-section {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  padding: 1.75rem 0;
+  border-bottom: 1px solid #2b2b2b;
+  gap: 1.5rem;
+}
+
+.account-section__title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--c-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0;
+}
+
+.account-section__content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* Membership Group */
+.account-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.account-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.account-info-label {
+  font-size: 0.8rem;
+  color: var(--c-text-muted);
+}
+
+.account-info-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.account-action-link {
+  background: none;
+  border: none;
+  color: #0071eb;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: none;
+  transition: color var(--dur-fast), text-decoration var(--dur-fast);
+}
+
+.account-action-link:hover {
+  color: #2b90ff;
+  text-decoration: underline;
+}
+
+/* Plan Card */
+.account-plan-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(229, 9, 20, 0.15);
+  border: 1px solid rgba(229, 9, 20, 0.4);
+  color: #ff6b72;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.account-plan-features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+  background: #191919;
+  border: 1px solid #2a2a2a;
+  padding: 1rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  color: var(--c-text-soft);
+}
+
+.account-plan-feature {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.account-plan-feature svg {
+  color: var(--c-match);
+  flex-shrink: 0;
+}
+
+/* Profiles List */
+.account-profiles-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.account-profile-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #181818;
+  border: 1px solid #282828;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-sm);
+  transition: border-color var(--dur-fast), background var(--dur-fast);
+}
+
+.account-profile-row:hover {
+  border-color: #3f3f3f;
+  background: #202020;
+}
+
+.account-profile-row__left {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.account-profile-row__name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #ffffff;
+}
+
+.account-profile-row__tag {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--radius-xs);
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--c-text-soft);
+  margin-left: 0.5rem;
+}
+
+/* Toggle Switch */
+.account-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid #242424;
+}
+
+.account-toggle-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.account-toggle-title {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #ffffff;
+}
+
+.account-toggle-desc {
+  font-size: 0.8rem;
+  color: var(--c-text-muted);
+}
+
+/* Switch Input */
+.account-switch {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 26px;
+  flex-shrink: 0;
+}
+
+.account-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.account-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #3a3a3a;
+  transition: 200ms ease;
+  border-radius: 34px;
+}
+
+.account-slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 3px;
+  bottom: 3px;
+  background-color: #ffffff;
+  transition: 200ms ease;
+  border-radius: 50%;
+}
+
+input:checked + .account-slider {
+  background-color: var(--c-accent);
+}
+
+input:checked + .account-slider:before {
+  transform: translateX(22px);
+}
+
+/* Sign out button at bottom */
+.account-footer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding-top: 2rem;
+}
+
+.btn-account-signout {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: transparent;
+  color: var(--c-text-muted);
+  border: 1px solid #444444;
+  padding: 0.65rem 1.4rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--dur-fast);
+}
+
+.btn-account-signout:hover {
+  color: #ffffff;
+  border-color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Password Change Modal / Card */
+.account-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1.5rem;
+  animation: fade-in 200ms ease;
+}
+
+.account-modal-card {
+  background: #181818;
+  border: 1px solid #333333;
+  border-radius: var(--radius-md);
+  padding: 2rem;
+  max-width: 440px;
+  width: 100%;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+}
+
+.account-modal-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 1rem 0;
+}
+
+.account-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.account-modal-input {
+  width: 100%;
+  padding: 0.75rem 0.9rem;
+  background: #252525;
+  border: 1px solid #3d3d3d;
+  color: #ffffff;
+  border-radius: var(--radius-sm);
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color var(--dur-fast);
+}
+
+.account-modal-input:focus {
+  border-color: #ffffff;
+}
+
+.account-modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+@media (max-width: 768px) {
+  .account-section {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+}
+

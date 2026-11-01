@@ -1,0 +1,223 @@
+/* ── Netflix-Consistent Mood Switcher ────────────────────────── */
+
+.mood-bar-section {
+  position: relative;
+  width: 100%;
+  margin-bottom: var(--row-space);
+  user-select: none;
+  z-index: var(--z-row);
+}
+
+/* Subtle, atmospheric ambient glow matching Netflix backdrop */
+.mood-ambient-glow {
+  position: absolute;
+  top: -60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100vw, 1200px);
+  height: 240px;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.28;
+  filter: blur(70px);
+  transition: background 500ms var(--ease), opacity 500ms ease;
+  border-radius: 50%;
+}
+
+/* Row Header - matches Netflix carousel-row__title */
+.mood-bar__header {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--gutter);
+  margin-bottom: 0.85rem;
+}
+
+.mood-bar__title {
+  font-size: var(--fs-row);
+  font-weight: 700;
+  color: var(--c-text-soft);
+  margin: 0;
+  letter-spacing: -0.01em;
+  transition: color var(--dur-fast);
+}
+
+.mood-bar-section:hover .mood-bar__title {
+  color: #ffffff;
+}
+
+/* Track container with Netflix carousel arrows */
+.mood-bar__track-container {
+  position: relative;
+  width: 100%;
+  z-index: 2;
+}
+
+.mood-bar__track-container:hover .carousel-arrow {
+  opacity: 1;
+}
+
+.mood-bar-arrow {
+  height: 100%;
+  background: rgba(20, 20, 20, 0.65);
+}
+
+.mood-bar-arrow:hover {
+  background: rgba(20, 20, 20, 0.9);
+}
+
+/* Pills Track */
+.mood-pills-track {
+  display: flex;
+  align-items: center;
+  gap: clamp(6px, 0.6vw, 10px);
+  padding: 4px var(--gutter) 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  scroll-behavior: smooth;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mood-pills-track::-webkit-scrollbar {
+  display: none;
+}
+
+/* Individual Mood Button - Netflix Box Style */
+.mood-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.52rem 1.15rem;
+  border-radius: var(--radius-sm);
+  background: rgba(45, 45, 45, 0.75);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  color: #ffffff;
+  font-size: clamp(0.85rem, 0.8rem + 0.12vw, 0.95rem);
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  scroll-snap-align: start;
+  flex-shrink: 0;
+  outline: none;
+  user-select: none;
+}
+
+.mood-pill__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--c-text-2);
+}
+
+/* Active State: Signature Netflix White Contrast Box Button */
+.mood-pill--active,
+.mood-pill--active:hover,
+.mood-pill--active:focus,
+.mood-pill--active:active {
+  color: #000000 !important;
+  font-weight: 800 !important;
+  background: #ffffff !important;
+  border-color: #ffffff !important;
+  border-radius: var(--radius-sm) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.55);
+}
+
+.mood-pill--active .mood-pill__icon,
+.mood-pill--active:hover .mood-pill__icon,
+.mood-pill--active:focus .mood-pill__icon,
+.mood-pill--active:active .mood-pill__icon {
+  color: var(--pill-accent, #e50914) !important;
+  stroke: var(--pill-accent, #e50914) !important;
+}
+
+/* Active Tagline Sub-Banner */
+.mood-active-tagline {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0.85rem var(--gutter) 0;
+  background: rgba(22, 22, 22, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-left: 3px solid var(--tagline-accent, var(--c-accent));
+  border-radius: var(--radius-sm);
+  padding: 0.65rem 1rem;
+  animation: mood-in 240ms var(--ease) both;
+}
+
+@keyframes mood-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.mood-active-text {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.875rem;
+  color: var(--c-text-2);
+  flex-wrap: wrap;
+}
+
+.mood-active-name {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.mood-active-sep {
+  color: var(--c-text-3);
+  font-size: 0.85rem;
+}
+
+.mood-active-desc {
+  color: var(--c-text-soft);
+}
+
+.mood-count-badge {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--c-text-soft);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 3px 9px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 639px) {
+  .mood-pill {
+    padding: 0.45rem 0.95rem;
+    font-size: 0.82rem;
+    gap: 0.45rem;
+    border-radius: var(--radius-sm);
+  }
+
+  .mood-active-tagline {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+    padding: 0.55rem 0.75rem;
+  }
+
+  .mood-bar-arrow {
+    display: none;
+  }
+}

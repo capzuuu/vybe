@@ -1,0 +1,428 @@
+/* ── Netflix Auth Page Styling ───────────────────────────────────────── */
+
+.netflix-auth {
+  position: relative;
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: #000;
+  color: #fff;
+  overflow-x: hidden;
+}
+
+/* Cinematic Background with Dark Vignette */
+.netflix-auth__bg {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background-image: 
+    linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.45) 50%, rgba(0, 0, 0, 0.85) 100%),
+    url('https://assets.nflxext.com/ffe/siteui/vlv3/f841d4c7-10e1-40af-bcae-07a3f8dc141a/f6d7434e-d6de-4185-a6d4-c77a2d08737b/US-en-20220502-popsignuptwoweeks-perspective_alpha_website_medium.jpg');
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  z-index: 0;
+  opacity: 0.55;
+  filter: blur(1px);
+}
+
+/* Header */
+.netflix-auth__header {
+  position: relative;
+  z-index: 10;
+  padding: 24px var(--gutter);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.netflix-auth__brand {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+/* Main Container */
+.netflix-auth__main {
+  position: relative;
+  z-index: 10;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px var(--gutter) 60px;
+}
+
+/* Auth Card */
+.netflix-auth__card {
+  width: 100%;
+  max-width: 450px;
+  background: rgba(0, 0, 0, 0.78);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border-radius: 6px;
+  padding: 48px 48px 40px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  animation: auth-card-in 350ms var(--ease) both;
+}
+
+@keyframes auth-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.netflix-auth__title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 24px 0;
+  letter-spacing: -0.02em;
+}
+
+/* Notice Banner */
+.netflix-auth__banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  margin-bottom: 20px;
+}
+
+.netflix-auth__banner--error {
+  background: rgba(229, 9, 20, 0.18);
+  border: 1px solid var(--c-accent);
+  color: #ffa4a8;
+}
+
+.netflix-auth__banner--success {
+  background: rgba(70, 211, 105, 0.15);
+  border: 1px solid var(--c-match);
+  color: #8ef7aa;
+}
+
+.netflix-auth__banner--info {
+  background: rgba(255, 160, 0, 0.15);
+  border: 1px solid #ffa000;
+  color: #ffd580;
+}
+
+/* Google OAuth Button */
+.btn-google {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: #ffffff;
+  color: #1f1f1f;
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 12px 16px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  transition: all 180ms ease;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.btn-google:hover {
+  background: #f0f0f0;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.btn-google:active {
+  transform: translateY(0);
+}
+
+.btn-google svg {
+  flex-shrink: 0;
+}
+
+/* Divider */
+.netflix-auth__divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  margin: 18px 0;
+}
+
+.netflix-auth__divider::before,
+.netflix-auth__divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.netflix-auth__divider::before {
+  margin-right: 14px;
+}
+
+.netflix-auth__divider::after {
+  margin-left: 14px;
+}
+
+/* Form */
+.netflix-auth__form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.netflix-input-group {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.netflix-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.netflix-input {
+  width: 100%;
+  background: #333333;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 0.95rem;
+  padding: 14px 16px;
+  line-height: 1.3;
+  transition: background-color 160ms, border-color 160ms;
+}
+
+.netflix-input:focus {
+  outline: none;
+  background: #454545;
+  border-color: #ffffff;
+}
+
+.netflix-input::placeholder {
+  color: #8c8c8c;
+}
+
+.netflix-input-toggle {
+  position: absolute;
+  right: 12px;
+  background: transparent;
+  border: none;
+  color: #8c8c8c;
+  cursor: pointer;
+  padding: 4px;
+  display: grid;
+  place-items: center;
+  transition: color 150ms;
+}
+
+.netflix-input-toggle:hover {
+  color: #ffffff;
+}
+
+/* Primary Submit Button */
+.btn-netflix-submit {
+  width: 100%;
+  background-color: var(--c-accent);
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 14px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: background-color 180ms ease, transform 140ms ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-netflix-submit:hover:not(:disabled) {
+  background-color: var(--c-accent-hover);
+}
+
+.btn-netflix-submit:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.btn-netflix-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Form Extras */
+.netflix-auth__extras {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: #b3b3b3;
+  margin-top: 4px;
+}
+
+.netflix-remember {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.netflix-remember input[type="checkbox"] {
+  accent-color: #737373;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.netflix-help-link {
+  color: #b3b3b3;
+  text-decoration: none;
+}
+
+.netflix-help-link:hover {
+  text-decoration: underline;
+}
+
+/* Switcher footer inside card */
+.netflix-auth__switch {
+  margin-top: 28px;
+  font-size: 0.95rem;
+  color: #737373;
+  line-height: 1.4;
+}
+
+.netflix-auth__switch-btn {
+  background: none;
+  border: none;
+  color: #ffffff;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0 0 0 6px;
+  text-decoration: none;
+}
+
+.netflix-auth__switch-btn:hover {
+  text-decoration: underline;
+}
+
+/* Demo Mode Pill */
+.netflix-demo-btn {
+  width: 100%;
+  margin-top: 14px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #e5e5e5;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 180ms;
+}
+
+.netflix-demo-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  border-color: #fff;
+}
+
+/* Recaptcha note */
+.netflix-auth__recaptcha {
+  margin-top: 18px;
+  font-size: 0.78rem;
+  color: #8c8c8c;
+  line-height: 1.4;
+}
+
+.netflix-auth__recaptcha a {
+  color: #0071eb;
+  text-decoration: none;
+}
+
+.netflix-auth__recaptcha a:hover {
+  text-decoration: underline;
+}
+
+/* Footer */
+.netflix-auth__footer {
+  position: relative;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.75);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 30px var(--gutter);
+  color: #737373;
+  font-size: 0.85rem;
+}
+
+.netflix-auth__footer-content {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.netflix-auth__footer-links {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px 24px;
+  margin: 20px 0;
+  list-style: none;
+  padding: 0;
+}
+
+.netflix-auth__footer-links a {
+  color: #737373;
+  text-decoration: none;
+}
+
+.netflix-auth__footer-links a:hover {
+  text-decoration: underline;
+}
+
+/* Responsive adjustments */
+@media (max-width: 740px) {
+  .netflix-auth__card {
+    padding: 36px 24px;
+    background: rgba(0, 0, 0, 0.88);
+  }
+
+  .netflix-auth__footer-links {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .netflix-auth__bg {
+    display: none;
+  }
+
+  .netflix-auth {
+    background: #000;
+  }
+
+  .netflix-auth__card {
+    border: none;
+    box-shadow: none;
+    padding: 24px 0;
+    background: transparent;
+  }
+}
+
