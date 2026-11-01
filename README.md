@@ -77,5 +77,16 @@ The Vite dev server automatically proxies any requests to `/api` directly to `ht
 CORS is also pre-configured on FastAPI for development convenience.
 
 
- 
+---
+
+## Connecting Frontend to Backend (Optional)
+
+If you host the backend on Render or Railway, simply add this rewrite rule in `frontend/vercel.json`:
+
+```json
+{
+  "source": "/api/:path*",
+  "destination": "https://your-backend-url.onrender.com/api/:path*"
+}
+```
 
