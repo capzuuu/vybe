@@ -434,25 +434,6 @@
   pointer-events: none;
 }
 
-/* ── Interactive Click-to-Toggle Player Overlay ───────────── */
-
-.watch-player-click-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 76px;
-  z-index: 10;
-  cursor: pointer;
-  background: transparent;
-  pointer-events: auto;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.watch-container.controls-hidden .watch-player-click-overlay {
-  cursor: default;
-}
-
 /* ── Loading / Fallback Screen ───────────────────────────── */
 
 .watch-loading-screen {

@@ -150,29 +150,6 @@ export function Watch() {
     };
   }, [wakeControls]);
 
-  // Clickable player detection: when user clicks inside player iframe, window blurs to iframe
-  useEffect(() => {
-    const handleWindowBlur = () => {
-      setTimeout(() => {
-        if (document.activeElement === iframeRef.current) {
-          setShowControls((prev) => {
-            const next = !prev;
-            if (next) wakeControls();
-            return next;
-          });
-          try {
-            window.focus();
-          } catch { }
-        }
-      }, 60);
-    };
-
-    window.addEventListener('blur', handleWindowBlur);
-    return () => {
-      window.removeEventListener('blur', handleWindowBlur);
-    };
-  }, [wakeControls]);
-
   // Sync fullscreen state with document fullscreenchange
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -309,31 +286,7 @@ export function Watch() {
       className={`watch-container ${!showControls ? 'controls-hidden' : ''}`}
       onMouseMove={wakeControls}
       onTouchStart={wakeControls}
-      onClick={(e) => {
-        if (e.target === containerRef.current) {
-          setShowControls((prev) => !prev);
-          wakeControls();
-        }
-      }}
     >
-      {/* Interactive Click-to-Toggle Player Overlay (covers video, leaves bottom 76px for scrubber) */}
-      <div
-        className="watch-player-click-overlay"
-        onClick={(e) => {
-          e.stopPropagation();
-          setShowControls((prev) => {
-            const next = !prev;
-            if (next) wakeControls();
-            return next;
-          });
-        }}
-        onDoubleClick={(e) => {
-          e.stopPropagation();
-          toggleFullscreen();
-        }}
-        aria-label="Toggle Player Controls"
-      />
-
       {/* Embedded Stream Player (VidLink PRO) */}
       <div className="watch-iframe-wrapper">
         <iframe
