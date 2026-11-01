@@ -41,17 +41,7 @@ export function Home() {
     };
   }, [currentHoliday, registerTitles]);
 
-  if (loading) {
-    return (
-      <div className="page">
-        <LoadingSkeleton type="hero" />
-        <LoadingSkeleton type="row" />
-        <LoadingSkeleton type="row" />
-      </div>
-    );
-  }
-
-  // Mood filtering (memoized)
+  // Mood filtering (memoized) - hooks must ALWAYS be called in the exact same order
   const moodTitles = useMemo(() => filterTitlesByMood(titles, selectedMood), [titles, selectedMood]);
   const activeMoodConfig = useMemo(() => MOODS.find((m) => m.id === selectedMood), [selectedMood]);
 
@@ -132,6 +122,16 @@ export function Home() {
 
   // "Because You Liked" recommendation
   const seedTitle = preferred[0];
+
+  if (loading) {
+    return (
+      <div className="page">
+        <LoadingSkeleton type="hero" />
+        <LoadingSkeleton type="row" />
+        <LoadingSkeleton type="row" />
+      </div>
+    );
+  }
 
   return (
     <div className="page">

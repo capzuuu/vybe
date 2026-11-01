@@ -12,15 +12,7 @@ export function MyList() {
   const [filterType, setFilterType] = useState<'all' | 'movie' | 'series'>('all');
   const [sortOrder, setSortOrder] = useState<'added' | 'az' | 'rating'>('added');
 
-  if (loading) {
-    return (
-      <div className="page page--padded">
-        <LoadingSkeleton type="grid" count={12} />
-      </div>
-    );
-  }
-
-  // Resolve titles in myList (de-duplicated)
+  // Resolve titles in myList (de-duplicated) - hooks must be called unconditionally
   const savedTitles = useMemo(() => {
     const seen = new Set<string>();
     const list: typeof titles = [];
@@ -33,6 +25,14 @@ export function MyList() {
     }
     return list;
   }, [myList, titles, getTitle]);
+
+  if (loading) {
+    return (
+      <div className="page page--padded">
+        <LoadingSkeleton type="grid" count={12} />
+      </div>
+    );
+  }
 
   // Filter
   const filtered = savedTitles.filter((t) => {
