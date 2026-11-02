@@ -413,17 +413,6 @@
   filter: drop-shadow(0 0 6px rgba(229, 9, 20, 0.6));
 }
 
-.bottom-nav__item.active::after {
-  content: '';
-  position: absolute;
-  bottom: 4px;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: #e50914;
-  box-shadow: 0 0 6px #e50914;
-}
-
 .bottom-nav__btn {
   background: none;
   border: none;
