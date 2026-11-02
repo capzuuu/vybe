@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
-import { Search, Bell, X, ChevronDown, Check, Flame, Edit3, User, HelpCircle, LogOut, Tv, Film, Settings, Users, Sparkles, Menu } from 'lucide-react';
+import { Search, Bell, X, ChevronDown, Check, Flame, Edit3, User, HelpCircle, LogOut, Tv, Film, Settings, Users, Heart, Menu } from 'lucide-react';
 import { useProfiles } from '../contexts/ProfileContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useCatalog } from '../contexts/CatalogContext';
@@ -8,7 +8,7 @@ import { useScrolled, useOnClickOutside } from '../hooks';
 import { ProfileAvatar } from './ui/ProfileAvatar';
 import { Logo } from './ui/TitleArt';
 import { SmartImage } from './ui/SmartImage';
-import { BrowseSheet } from './BrowseSheet';
+import { RadialMenu } from './RadialMenu';
 import { usePlayTitle } from '../hooks';
 import './navbar.css';
 
@@ -37,14 +37,14 @@ export function Navbar() {
   const profileRef = useRef<HTMLDivElement>(null);
   useOnClickOutside(profileRef, () => setProfileOpen(false), profileOpen);
 
-  // Mobile Browse / Categories bottom sheet
-  const [browseSheetOpen, setBrowseSheetOpen] = useState(false);
+  // Mobile Radial Menu for More options
+  const [moreOpen, setMoreOpen] = useState(false);
 
-  // Close dropdowns & sheets on route change
+  // Close dropdowns & menus on route change
   useEffect(() => {
     setNotificationsOpen(false);
     setProfileOpen(false);
-    setBrowseSheetOpen(false);
+    setMoreOpen(false);
   }, [location.pathname]);
 
   // Keep search input synced with url when on /search
@@ -359,49 +359,53 @@ export function Navbar() {
         </div>
       </header>
 
-      {/* Mobile Bottom Tab Bar (Responsive Navigation) */}
-      <nav className="bottom-nav" aria-label="Mobile Navigation">
-        <NavLink to="/" end className={({ isActive }) => `bottom-nav__item ${isActive ? 'active' : ''}`}>
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-            <path d="M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3z" />
-          </svg>
-          <span>Home</span>
-        </NavLink>
-        <NavLink to="/tv" className={({ isActive }) => `bottom-nav__item ${isActive ? 'active' : ''}`}>
-          <Tv size={20} />
-          <span>TV Shows</span>
-        </NavLink>
-        <NavLink to="/movies" className={({ isActive }) => `bottom-nav__item ${isActive ? 'active' : ''}`}>
-          <Film size={20} />
-          <span>Movies</span>
-        </NavLink>
-        <NavLink to="/kdrama" className={({ isActive }) => `bottom-nav__item ${isActive ? 'active' : ''}`}>
-          <Sparkles size={20} />
-          <span>K-Drama</span>
-        </NavLink>
-        <button
-          type="button"
-          className={`bottom-nav__item bottom-nav__btn ${
-            browseSheetOpen ||
-            location.pathname === '/latest' ||
-            location.pathname === '/community' ||
-            location.pathname === '/browse/languages'
-              ? 'active'
-              : ''
-          }`}
-          onClick={() => setBrowseSheetOpen(true)}
-          aria-label="More navigation options"
-        >
-          <Menu size={20} />
-          <span>More</span>
-        </button>
-      </nav>
+      {/* Mobile Floating Glassmorphism Navigation Bar */}
+      <div className="bottom-nav-wrapper">
+        <nav className="bottom-nav" aria-label="Mobile Navigation">
+          <NavLink to="/" end className={({ isActive }) => `bottom-nav__item ${isActive ? 'active' : ''}`}>
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+              <path d="M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3z" />
+            </svg>
+            <span>Home</span>
+          </NavLink>
+          <NavLink to="/tv" className={({ isActive }) => `bottom-nav__item ${isActive ? 'active' : ''}`}>
+            <Tv size={20} />
+            <span>TV Shows</span>
+          </NavLink>
+          <NavLink to="/movies" className={({ isActive }) => `bottom-nav__item ${isActive ? 'active' : ''}`}>
+            <Film size={20} />
+            <span>Movies</span>
+          </NavLink>
+          <NavLink to="/kdrama" className={({ isActive }) => `bottom-nav__item ${isActive ? 'active' : ''}`}>
+            <Heart size={20} />
+            <span>K-Drama</span>
+          </NavLink>
+          <button
+            type="button"
+            className={`bottom-nav__item bottom-nav__btn ${
+              moreOpen ||
+              location.pathname === '/latest' ||
+              location.pathname === '/community' ||
+              location.pathname === '/browse/languages'
+                ? 'active'
+                : ''
+            }`}
+            onClick={() => setMoreOpen((prev) => !prev)}
+            aria-label="More navigation options"
+            aria-expanded={moreOpen}
+          >
+            {moreOpen ? (
+              <X size={20} className="bottom-nav__more-icon" />
+            ) : (
+              <Menu size={20} className="bottom-nav__more-icon" />
+            )}
+            <span>{moreOpen ? 'Close' : 'More'}</span>
+          </button>
 
-      {/* More Slide-up Bottom Sheet (New & Hot, Community, Languages) */}
-      <BrowseSheet
-        isOpen={browseSheetOpen}
-        onClose={() => setBrowseSheetOpen(false)}
-      />
+          {/* Animated Radial Menu expanding around More button */}
+          <RadialMenu isOpen={moreOpen} onClose={() => setMoreOpen(false)} />
+        </nav>
+      </div>
     </>
   );
 }
