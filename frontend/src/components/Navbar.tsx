@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
-import { Search, Bell, X, ChevronDown, Check, Flame, Edit3, User, HelpCircle, LogOut, Tv, Film, Settings, Users, Heart, Menu } from 'lucide-react';
+import { Search, Bell, X, ChevronDown, Check, Flame, Edit3, User, HelpCircle, LogOut, Tv, Film, Settings, Users, Heart, Menu, House } from 'lucide-react';
 import { useProfiles } from '../contexts/ProfileContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useCatalog } from '../contexts/CatalogContext';
@@ -292,7 +292,7 @@ export function Navbar() {
                         onClick={() => setProfileOpen(false)}
                       >
                         <Users size={18} />
-                        <span>Community &amp; Social</span>
+                        <span>Community</span>
                       </Link>
                       <Link
                         to="/my-list"
@@ -363,9 +363,7 @@ export function Navbar() {
       <div className="bottom-nav-wrapper">
         <nav className="bottom-nav" aria-label="Mobile Navigation">
           <NavLink to="/" end className={({ isActive }) => `bottom-nav__item ${isActive ? 'active' : ''}`}>
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-              <path d="M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3z" />
-            </svg>
+            <House size={20} />
             <span>Home</span>
           </NavLink>
           <NavLink to="/tv" className={({ isActive }) => `bottom-nav__item ${isActive ? 'active' : ''}`}>
