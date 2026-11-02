@@ -39,6 +39,23 @@ export function Navbar() {
 
   // Mobile Radial Menu for More options
   const [moreOpen, setMoreOpen] = useState(false);
+  const bottomNavRef = useRef<HTMLElement>(null);
+
+  // Close radial menu when clicking or tapping outside the mobile navbar
+  useEffect(() => {
+    if (!moreOpen) return;
+    const handleOutsideClick = (e: MouseEvent | TouchEvent) => {
+      if (bottomNavRef.current && !bottomNavRef.current.contains(e.target as Node)) {
+        setMoreOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('touchstart', handleOutsideClick, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('touchstart', handleOutsideClick);
+    };
+  }, [moreOpen]);
 
   // Close dropdowns & menus on route change
   useEffect(() => {
@@ -361,7 +378,18 @@ export function Navbar() {
 
       {/* Mobile Floating Glassmorphism Navigation Bar */}
       <div className="bottom-nav-wrapper">
-        <nav className="bottom-nav" aria-label="Mobile Navigation">
+        <nav
+          ref={bottomNavRef}
+          className={`bottom-nav ${moreOpen ? 'radial-open' : ''}`}
+          aria-label="Mobile Navigation"
+        >
+          {/* Frosted blur mask over Home, TV Shows, Movies, K-Drama when More is open */}
+          <div
+            className="bottom-nav__blur-mask"
+            onClick={() => setMoreOpen(false)}
+            aria-hidden={!moreOpen}
+          />
+
           <NavLink to="/" end className={({ isActive }) => `bottom-nav__item ${isActive ? 'active' : ''}`}>
             <House size={20} />
             <span>Home</span>

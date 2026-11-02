@@ -1,17 +1,5 @@
 /* ── Animated Radial Menu & Floating Glassmorphism ─────────── */
 
-.radial-menu-backdrop {
-  position: fixed;
-  inset: 0;
-  background: transparent;
-  z-index: 890;
-  pointer-events: none;
-}
-
-.radial-menu-backdrop.open {
-  pointer-events: auto;
-}
-
 /* Radial Menu Anchor Container (anchored over the More button inside the floating pill) */
 .radial-menu-container {
   position: absolute;

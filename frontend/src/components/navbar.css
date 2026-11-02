@@ -383,8 +383,37 @@
   border-radius: 9999px;
   padding: 0 4px;
   position: relative;
-  transition: color 0.18s ease;
+  transition: color 0.18s ease, filter 0.25s ease, opacity 0.25s ease;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Frosted glass blur mask covering the other items when radial menu is open */
+.bottom-nav__blur-mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 20%;
+  border-radius: 9999px 0 0 9999px;
+  background: rgba(10, 10, 16, 0.4);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+  z-index: 4;
+}
+
+.bottom-nav.radial-open .bottom-nav__blur-mask {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Blur Home, TV Shows, Movies, K-Drama when radial menu is open */
+.bottom-nav.radial-open .bottom-nav__item:not(.bottom-nav__btn) {
+  filter: blur(4px);
+  opacity: 0.3;
+  pointer-events: none;
 }
 
 .bottom-nav__item span {
@@ -416,6 +445,8 @@
   border: none;
   cursor: pointer;
   font-family: inherit;
+  position: relative;
+  z-index: 10;
 }
 
 .bottom-nav__more-icon {

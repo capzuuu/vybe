@@ -51,34 +51,24 @@ export function RadialMenu({ isOpen, onClose }: RadialMenuProps) {
   }, [isOpen, onClose]);
 
   return (
-    <>
-      {/* Blurred Backdrop */}
-      <div
-        className={`radial-menu-backdrop ${isOpen ? 'open' : ''}`}
-        onClick={onClose}
-        aria-hidden={!isOpen}
-      />
-
-      {/* Radial Nodes */}
-      <div className={`radial-menu-container ${isOpen ? 'open' : ''}`} role="menu">
-        {RADIAL_ITEMS.map((item) => {
-          const Icon = item.icon;
-          return (
-            <div key={item.path} className="radial-item-wrapper">
-              <NavLink
-                to={item.path}
-                className={({ isActive }) => `radial-item__btn ${isActive ? 'active' : ''}`}
-                onClick={onClose}
-                aria-label={item.label}
-                title={item.label}
-              >
-                <Icon size={20} />
-              </NavLink>
-            </div>
-          );
-        })}
-      </div>
-    </>
+    <div className={`radial-menu-container ${isOpen ? 'open' : ''}`} role="menu">
+      {RADIAL_ITEMS.map((item) => {
+        const Icon = item.icon;
+        return (
+          <div key={item.path} className="radial-item-wrapper">
+            <NavLink
+              to={item.path}
+              className={({ isActive }) => `radial-item__btn ${isActive ? 'active' : ''}`}
+              onClick={onClose}
+              aria-label={item.label}
+              title={item.label}
+            >
+              <Icon size={20} />
+            </NavLink>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
