@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
-import { Search, Bell, X, ChevronDown, Check, Flame, Edit3, User, HelpCircle, LogOut, Tv, Film, Settings, Users, Compass } from 'lucide-react';
+import { Search, Bell, X, ChevronDown, Check, Flame, Edit3, User, HelpCircle, LogOut, Tv, Film, Settings, Users, Sparkles, Menu } from 'lucide-react';
 import { useProfiles } from '../contexts/ProfileContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useCatalog } from '../contexts/CatalogContext';
@@ -375,29 +375,29 @@ export function Navbar() {
           <Film size={20} />
           <span>Movies</span>
         </NavLink>
-        <NavLink to="/latest" className={({ isActive }) => `bottom-nav__item ${isActive ? 'active' : ''}`}>
-          <Flame size={20} />
-          <span>New &amp; Hot</span>
+        <NavLink to="/kdrama" className={({ isActive }) => `bottom-nav__item ${isActive ? 'active' : ''}`}>
+          <Sparkles size={20} />
+          <span>K-Drama</span>
         </NavLink>
         <button
           type="button"
           className={`bottom-nav__item bottom-nav__btn ${
             browseSheetOpen ||
-            location.pathname === '/kdrama' ||
+            location.pathname === '/latest' ||
             location.pathname === '/community' ||
             location.pathname === '/browse/languages'
               ? 'active'
               : ''
           }`}
           onClick={() => setBrowseSheetOpen(true)}
-          aria-label="Browse Categories & K-Drama"
+          aria-label="More navigation options"
         >
-          <Compass size={20} />
-          <span>Browse</span>
+          <Menu size={20} />
+          <span>More</span>
         </button>
       </nav>
 
-      {/* Categories & K-Drama Slide-up Bottom Sheet */}
+      {/* More Slide-up Bottom Sheet (New & Hot, Community, Languages) */}
       <BrowseSheet
         isOpen={browseSheetOpen}
         onClose={() => setBrowseSheetOpen(false)}
