@@ -65,12 +65,12 @@ export function RadialMenu({ isOpen, onClose }: RadialMenuProps) {
           const Icon = item.icon;
           return (
             <div key={item.path} className="radial-item-wrapper">
-              <span className="radial-item__label">{item.label}</span>
               <NavLink
                 to={item.path}
                 className={({ isActive }) => `radial-item__btn ${isActive ? 'active' : ''}`}
                 onClick={onClose}
                 aria-label={item.label}
+                title={item.label}
               >
                 <Icon size={20} />
               </NavLink>

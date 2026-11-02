@@ -383,12 +383,8 @@
   border-radius: 9999px;
   padding: 0 4px;
   position: relative;
-  transition: color 0.18s ease, transform 0.15s ease;
+  transition: color 0.18s ease;
   -webkit-tap-highlight-color: transparent;
-}
-
-.bottom-nav__item:active {
-  transform: scale(0.92);
 }
 
 .bottom-nav__item span {

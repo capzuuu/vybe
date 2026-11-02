@@ -382,14 +382,13 @@ export function Navbar() {
           </NavLink>
           <button
             type="button"
-            className={`bottom-nav__item bottom-nav__btn ${
-              moreOpen ||
+            className={`bottom-nav__item bottom-nav__btn ${moreOpen ||
               location.pathname === '/latest' ||
               location.pathname === '/community' ||
               location.pathname === '/browse/languages'
-                ? 'active'
-                : ''
-            }`}
+              ? 'active'
+              : ''
+              }`}
             onClick={() => setMoreOpen((prev) => !prev)}
             aria-label="More navigation options"
             aria-expanded={moreOpen}
