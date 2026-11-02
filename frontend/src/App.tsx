@@ -52,6 +52,7 @@ function lazyWithRetry<T extends React.ComponentType<any>>(
 const Home = lazyWithRetry(() => import('./pages/Home').then((m) => ({ default: m.Home })));
 const TVShows = lazyWithRetry(() => import('./pages/TVShows').then((m) => ({ default: m.TVShows })));
 const Movies = lazyWithRetry(() => import('./pages/Movies').then((m) => ({ default: m.Movies })));
+const KDrama = lazyWithRetry(() => import('./pages/KDrama').then((m) => ({ default: m.KDrama })));
 const NewPopular = lazyWithRetry(() => import('./pages/NewPopular').then((m) => ({ default: m.NewPopular })));
 const CommunityPage = lazyWithRetry(() => import('./pages/CommunityPage').then((m) => ({ default: m.CommunityPage })));
 const MyList = lazyWithRetry(() => import('./pages/MyList').then((m) => ({ default: m.MyList })));
@@ -207,6 +208,14 @@ export default function App() {
                       element={
                         <AppLayout>
                           <Movies />
+                        </AppLayout>
+                      }
+                    />
+                    <Route
+                      path="/kdrama"
+                      element={
+                        <AppLayout>
+                          <KDrama />
                         </AppLayout>
                       }
                     />

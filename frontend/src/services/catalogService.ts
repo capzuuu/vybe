@@ -10,7 +10,20 @@ import {
   searchTMDB,
   getTitleDetails,
   GENRE_NAME_TO_ID,
+  getPopularKDramas,
+  getTopRatedKDramas,
+  getRomanceKDramas,
+  getThrillerKDramas,
+  getKoreanMovies,
 } from './tmdbService';
+
+export {
+  getPopularKDramas,
+  getTopRatedKDramas,
+  getRomanceKDramas,
+  getThrillerKDramas,
+  getKoreanMovies,
+};
 
 /**
  * Loads a rich dynamic catalog fetched directly from TMDB API endpoints.

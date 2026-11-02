@@ -324,6 +324,60 @@ export async function getNowPlayingMovies(): Promise<Title[]> {
   return data.results.filter((i) => i.backdrop_path).map((i) => formatTMDBItem(i, 'movie'));
 }
 
+export async function getPopularKDramas(page = 1): Promise<Title[]> {
+  const data = await tmdbFetch<{ results: any[] }>('/discover/tv', {
+    with_original_language: 'ko',
+    sort_by: 'popularity.desc',
+    page: page.toString(),
+  });
+  return data.results
+    .filter((i) => i.backdrop_path || i.poster_path)
+    .map((i) => formatTMDBItem(i, 'series'));
+}
+
+export async function getTopRatedKDramas(): Promise<Title[]> {
+  const data = await tmdbFetch<{ results: any[] }>('/discover/tv', {
+    with_original_language: 'ko',
+    sort_by: 'vote_average.desc',
+    'vote_count.gte': '150',
+  });
+  return data.results
+    .filter((i) => i.backdrop_path || i.poster_path)
+    .map((i) => formatTMDBItem(i, 'series'));
+}
+
+export async function getRomanceKDramas(): Promise<Title[]> {
+  const data = await tmdbFetch<{ results: any[] }>('/discover/tv', {
+    with_original_language: 'ko',
+    with_genres: '10749,18',
+    sort_by: 'popularity.desc',
+  });
+  return data.results
+    .filter((i) => i.backdrop_path || i.poster_path)
+    .map((i) => formatTMDBItem(i, 'series'));
+}
+
+export async function getThrillerKDramas(): Promise<Title[]> {
+  const data = await tmdbFetch<{ results: any[] }>('/discover/tv', {
+    with_original_language: 'ko',
+    with_genres: '9648,80,53',
+    sort_by: 'popularity.desc',
+  });
+  return data.results
+    .filter((i) => i.backdrop_path || i.poster_path)
+    .map((i) => formatTMDBItem(i, 'series'));
+}
+
+export async function getKoreanMovies(): Promise<Title[]> {
+  const data = await tmdbFetch<{ results: any[] }>('/discover/movie', {
+    with_original_language: 'ko',
+    sort_by: 'popularity.desc',
+  });
+  return data.results
+    .filter((i) => i.backdrop_path || i.poster_path)
+    .map((i) => formatTMDBItem(i, 'movie'));
+}
+
 export async function getDiscoverByGenre(genreId: number, mediaType: 'movie' | 'tv' = 'movie'): Promise<Title[]> {
   const data = await tmdbFetch<{ results: any[] }>(`/discover/${mediaType}`, {
     with_genres: genreId.toString(),

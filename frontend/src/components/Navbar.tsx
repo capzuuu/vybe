@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
-import { Search, Bell, X, ChevronDown, Check, Flame, Edit3, User, HelpCircle, LogOut, Tv, Film, Settings, Users } from 'lucide-react';
+import { Search, Bell, X, ChevronDown, Check, Flame, Edit3, User, HelpCircle, LogOut, Tv, Film, Settings, Users, Compass } from 'lucide-react';
 import { useProfiles } from '../contexts/ProfileContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useCatalog } from '../contexts/CatalogContext';
@@ -8,6 +8,7 @@ import { useScrolled, useOnClickOutside } from '../hooks';
 import { ProfileAvatar } from './ui/ProfileAvatar';
 import { Logo } from './ui/TitleArt';
 import { SmartImage } from './ui/SmartImage';
+import { BrowseSheet } from './BrowseSheet';
 import { usePlayTitle } from '../hooks';
 import './navbar.css';
 
@@ -36,10 +37,14 @@ export function Navbar() {
   const profileRef = useRef<HTMLDivElement>(null);
   useOnClickOutside(profileRef, () => setProfileOpen(false), profileOpen);
 
-  // Close dropdowns on route change
+  // Mobile Browse / Categories bottom sheet
+  const [browseSheetOpen, setBrowseSheetOpen] = useState(false);
+
+  // Close dropdowns & sheets on route change
   useEffect(() => {
     setNotificationsOpen(false);
     setProfileOpen(false);
+    setBrowseSheetOpen(false);
   }, [location.pathname]);
 
   // Keep search input synced with url when on /search
@@ -113,6 +118,11 @@ export function Navbar() {
               <li>
                 <NavLink to="/movies" className={({ isActive }) => `navbar__link ${isActive ? 'active' : ''}`}>
                   Movies
+                </NavLink>
+              </li>
+              <li>
+                <NavLink to="/kdrama" className={({ isActive }) => `navbar__link ${isActive ? 'active' : ''}`}>
+                  K-Drama
                 </NavLink>
               </li>
               <li>
@@ -369,11 +379,29 @@ export function Navbar() {
           <Flame size={20} />
           <span>New &amp; Hot</span>
         </NavLink>
-        <NavLink to="/community" className={({ isActive }) => `bottom-nav__item ${isActive ? 'active' : ''}`}>
-          <Users size={20} />
-          <span>Community</span>
-        </NavLink>
+        <button
+          type="button"
+          className={`bottom-nav__item bottom-nav__btn ${
+            browseSheetOpen ||
+            location.pathname === '/kdrama' ||
+            location.pathname === '/community' ||
+            location.pathname === '/browse/languages'
+              ? 'active'
+              : ''
+          }`}
+          onClick={() => setBrowseSheetOpen(true)}
+          aria-label="Browse Categories & K-Drama"
+        >
+          <Compass size={20} />
+          <span>Browse</span>
+        </button>
       </nav>
+
+      {/* Categories & K-Drama Slide-up Bottom Sheet */}
+      <BrowseSheet
+        isOpen={browseSheetOpen}
+        onClose={() => setBrowseSheetOpen(false)}
+      />
     </>
   );
 }
