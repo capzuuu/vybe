@@ -3,17 +3,12 @@
 .radial-menu-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: transparent;
   z-index: 890;
-  opacity: 0;
   pointer-events: none;
-  transition: opacity 0.25s ease;
 }
 
 .radial-menu-backdrop.open {
-  opacity: 1;
   pointer-events: auto;
 }
 
