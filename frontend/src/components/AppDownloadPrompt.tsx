@@ -72,6 +72,7 @@ export function AppDownloadPrompt() {
   const closeTimerRef = useRef<number>();
   const downloadStartTimerRef = useRef<number>();
   const hasShownInSessionRef = useRef(false);
+  const downloadTriggeredRef = useRef(false);
 
   const isWatchRoute = location.pathname.startsWith('/watch');
   useLockBodyScroll(phase === 'open');
@@ -110,6 +111,8 @@ export function AppDownloadPrompt() {
   }, [beginClose]);
 
   const handleDownload = useCallback(() => {
+    if (downloadTriggeredRef.current) return;
+    downloadTriggeredRef.current = true;
     persistPromptDismissal();
     setDismissed(true);
     showToast('Downloading Vybe Android app (Vybe.apk)…', { icon: 'check' });
