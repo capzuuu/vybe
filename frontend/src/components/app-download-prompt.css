@@ -23,8 +23,9 @@
   color: #ffffff;
   border: 1px solid #303030;
   border-radius: 20px;
-  padding: 2rem 1.5rem 1.5rem;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  padding: 2rem 1.75rem 1.5rem;
+  box-shadow: none;
+  font-family: var(--font-sans, 'Inter', 'Helvetica Neue', Arial, sans-serif);
   text-align: center;
   display: flex;
   flex-direction: column;
@@ -56,14 +57,20 @@
   color: #ffffff;
 }
 
+.app-prompt__close:focus-visible,
+.app-prompt__download:focus-visible,
+.app-prompt__dismiss:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.85);
+  outline-offset: 2px;
+}
+
 .app-prompt__logo {
   display: block;
   width: auto;
-  height: 18px;
+  height: 20px;
   max-width: 72px;
   object-fit: contain;
-  margin-bottom: 1rem;
-  opacity: 0.95;
+  margin-bottom: 1.1rem;
   user-select: none;
 }
 
@@ -71,18 +78,18 @@
   font-size: 1.25rem;
   font-weight: 700;
   line-height: 1.3;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
   color: #ffffff;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.55rem;
 }
 
 .app-prompt__desc {
   font-size: 0.9rem;
   font-weight: 400;
-  line-height: 1.5;
+  line-height: 1.55;
   color: #b3b3b3;
   max-width: 34ch;
-  margin-bottom: 1.35rem;
+  margin-bottom: 1.4rem;
 }
 
 .app-prompt__download {
@@ -90,7 +97,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.85rem 1.25rem;
+  padding: 0.875rem 1.25rem;
   border-radius: 10px;
   background: #E50914;
   color: #ffffff;
@@ -98,6 +105,7 @@
   font-weight: 600;
   line-height: 1.2;
   text-decoration: none;
+  box-shadow: none;
   transition: background-color 160ms ease, transform 140ms ease;
 }
 
@@ -111,30 +119,34 @@
 
 .app-prompt__meta {
   display: block;
-  margin-top: 0.6rem;
+  margin-top: 0.65rem;
   font-size: 0.75rem;
   font-weight: 500;
-  color: #808080;
+  font-variant-numeric: tabular-nums;
+  color: #848484;
   letter-spacing: 0.01em;
 }
 
 .app-prompt__dismiss {
-  margin-top: 0.85rem;
-  padding: 0.35rem 0.65rem;
+  margin-top: 0.9rem;
+  padding: 0.35rem 0.5rem;
   font-size: 0.85rem;
   font-weight: 500;
   color: #a3a3a3;
   background: transparent;
+  text-decoration: none;
+  text-underline-offset: 3px;
   transition: color 160ms ease;
 }
 
 .app-prompt__dismiss:hover {
   color: #ffffff;
+  text-decoration: underline;
 }
 
 @media (max-width: 420px) {
   .app-prompt-card {
-    padding: 1.85rem 1.25rem 1.35rem;
+    padding: 1.85rem 1.35rem 1.35rem;
   }
 
   .app-prompt__title {
@@ -143,6 +155,12 @@
 
   .app-prompt__desc {
     font-size: 0.875rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .app-prompt-card {
+    padding: 2.15rem 1.85rem 1.6rem;
   }
 }
 
@@ -167,7 +185,7 @@
 @keyframes app-prompt-card-in {
   from {
     opacity: 0;
-    transform: scale(0.96);
+    transform: scale(0.97);
   }
   to {
     opacity: 1;
@@ -182,7 +200,7 @@
   }
   to {
     opacity: 0;
-    transform: scale(0.96);
+    transform: scale(0.97);
   }
 }
 
