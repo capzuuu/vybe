@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
 import { useToast } from '../contexts/ToastContext';
 import { useLockBodyScroll } from '../hooks';
 import gcashLogo from '../assets/gcash-logo.svg';
@@ -27,6 +28,7 @@ import {
   QrCode,
   Facebook,
   GitFork,
+  Download,
 } from 'lucide-react';
 import './footer.css';
 
@@ -46,6 +48,7 @@ type ModalKey =
   | null;
 
 export function Footer() {
+  const isNativeApp = Capacitor.isNativePlatform();
   const { showToast } = useToast();
   const [serviceCode, setServiceCode] = useState<string | null>(null);
   const [activeModal, setActiveModal] = useState<ModalKey>(null);
@@ -320,6 +323,19 @@ export function Footer() {
           <button className="footer__service-btn" onClick={handleServiceCode}>
             {serviceCode ? `Service Code: ${serviceCode}` : 'Service Code'}
           </button>
+          {!isNativeApp && (
+            <a
+              href="/Vybe.apk"
+              download="Vybe.apk"
+              className="footer__apk-btn"
+              onClick={() =>
+                showToast('Downloading Vybe Android app (Vybe.apk)…', { icon: 'check' })
+              }
+            >
+              <Download size={14} aria-hidden="true" />
+              <span>Download APK</span>
+            </a>
+          )}
         </div>
 
         <div className="footer__copyright">
