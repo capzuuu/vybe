@@ -59,6 +59,10 @@
 
 .footer__service {
   margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .footer__service-btn {
@@ -66,6 +70,7 @@
   padding: 0.45rem 0.75rem;
   color: var(--c-text-3);
   font-size: 0.75rem;
+  line-height: 1.4;
   background: transparent;
   border-radius: 2px;
   cursor: pointer;
@@ -75,6 +80,30 @@
 .footer__service-btn:hover {
   color: var(--c-text);
   border-color: var(--c-text);
+}
+
+.footer__apk-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: 1px solid #303030;
+  padding: 0.45rem 0.85rem;
+  color: var(--c-text-soft, #e5e5e5);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+  background: #151515;
+  border-radius: 4px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color var(--dur-fast), border-color var(--dur-fast), background-color var(--dur-fast);
+}
+
+.footer__apk-btn:hover {
+  color: #ffffff;
+  border-color: #E50914;
+  background: #E50914;
 }
 
 .footer__copyright {
