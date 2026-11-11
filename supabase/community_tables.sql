@@ -92,36 +92,36 @@ CREATE POLICY "Recommendations are readable by everyone" ON public.recommendatio
 DROP POLICY IF EXISTS "Discussions are readable by everyone" ON public.episode_discussions;
 CREATE POLICY "Discussions are readable by everyone" ON public.episode_discussions FOR SELECT USING (true);
 
--- 8. RLS Write Policies (Authenticated users insert, update & delete their own content)
+-- 8. RLS Write Policies (Authenticated users insert, update & delete only their own content)
 DROP POLICY IF EXISTS "Users can insert their own reviews" ON public.title_reviews;
-CREATE POLICY "Users can insert their own reviews" ON public.title_reviews FOR INSERT WITH CHECK ((SELECT auth.uid()) = user_id);
+CREATE POLICY "Users can insert their own reviews" ON public.title_reviews FOR INSERT TO authenticated WITH CHECK ((SELECT auth.uid()) = user_id);
 
 DROP POLICY IF EXISTS "Users can update their own reviews" ON public.title_reviews;
-CREATE POLICY "Users can update their own reviews" ON public.title_reviews FOR UPDATE USING ((SELECT auth.uid()) = user_id);
+CREATE POLICY "Users can update their own reviews" ON public.title_reviews FOR UPDATE TO authenticated USING ((SELECT auth.uid()) = user_id) WITH CHECK ((SELECT auth.uid()) = user_id);
 
 DROP POLICY IF EXISTS "Users can delete their own reviews" ON public.title_reviews;
-CREATE POLICY "Users can delete their own reviews" ON public.title_reviews FOR DELETE USING ((SELECT auth.uid()) = user_id);
+CREATE POLICY "Users can delete their own reviews" ON public.title_reviews FOR DELETE TO authenticated USING ((SELECT auth.uid()) = user_id);
 
 DROP POLICY IF EXISTS "Users can insert their own lists" ON public.public_lists;
-CREATE POLICY "Users can insert their own lists" ON public.public_lists FOR INSERT WITH CHECK ((SELECT auth.uid()) = user_id);
+CREATE POLICY "Users can insert their own lists" ON public.public_lists FOR INSERT TO authenticated WITH CHECK ((SELECT auth.uid()) = user_id);
 
 DROP POLICY IF EXISTS "Users can update their own lists" ON public.public_lists;
-CREATE POLICY "Users can update their own lists" ON public.public_lists FOR UPDATE USING ((SELECT auth.uid()) = user_id);
+CREATE POLICY "Users can update their own lists" ON public.public_lists FOR UPDATE TO authenticated USING ((SELECT auth.uid()) = user_id) WITH CHECK ((SELECT auth.uid()) = user_id);
 
 DROP POLICY IF EXISTS "Users can delete their own lists" ON public.public_lists;
-CREATE POLICY "Users can delete their own lists" ON public.public_lists FOR DELETE USING ((SELECT auth.uid()) = user_id);
+CREATE POLICY "Users can delete their own lists" ON public.public_lists FOR DELETE TO authenticated USING ((SELECT auth.uid()) = user_id);
 
 DROP POLICY IF EXISTS "Users can insert recommendations" ON public.recommendations;
-CREATE POLICY "Users can insert recommendations" ON public.recommendations FOR INSERT WITH CHECK ((SELECT auth.uid()) = user_id);
+CREATE POLICY "Users can insert recommendations" ON public.recommendations FOR INSERT TO authenticated WITH CHECK ((SELECT auth.uid()) = user_id);
 
 DROP POLICY IF EXISTS "Users can delete recommendations" ON public.recommendations;
-CREATE POLICY "Users can delete recommendations" ON public.recommendations FOR DELETE USING ((SELECT auth.uid()) = user_id);
+CREATE POLICY "Users can delete recommendations" ON public.recommendations FOR DELETE TO authenticated USING ((SELECT auth.uid()) = user_id);
 
 DROP POLICY IF EXISTS "Users can insert discussions" ON public.episode_discussions;
-CREATE POLICY "Users can insert discussions" ON public.episode_discussions FOR INSERT WITH CHECK ((SELECT auth.uid()) = user_id);
+CREATE POLICY "Users can insert discussions" ON public.episode_discussions FOR INSERT TO authenticated WITH CHECK ((SELECT auth.uid()) = user_id);
 
 DROP POLICY IF EXISTS "Users can delete discussions" ON public.episode_discussions;
-CREATE POLICY "Users can delete discussions" ON public.episode_discussions FOR DELETE USING ((SELECT auth.uid()) = user_id);
+CREATE POLICY "Users can delete discussions" ON public.episode_discussions FOR DELETE TO authenticated USING ((SELECT auth.uid()) = user_id);
 
 -- 9. Atomic Like Adjustment Function (Hardened: strict delta +1/-1 and non-empty id)
 CREATE OR REPLACE FUNCTION public.adjust_community_likes(
@@ -159,11 +159,11 @@ $$;
 GRANT EXECUTE ON FUNCTION public.adjust_community_likes(TEXT, TEXT, INTEGER) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.adjust_community_likes(TEXT, TEXT, INTEGER) TO anon;
 
--- Idempotent data integrity & length bounds
-DO $$ BEGIN ALTER TABLE public.title_reviews ADD CONSTRAINT chk_title_reviews_len CHECK (char_length(content) BETWEEN 1 AND 2500 AND char_length(review_title) <= 160); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN ALTER TABLE public.public_lists ADD CONSTRAINT chk_public_lists_len CHECK (char_length(title) BETWEEN 1 AND 120 AND char_length(COALESCE(description, '')) <= 800 AND cardinality(title_ids) <= 200); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN ALTER TABLE public.recommendations ADD CONSTRAINT chk_recommendations_len CHECK (char_length(note) BETWEEN 1 AND 800); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN ALTER TABLE public.episode_discussions ADD CONSTRAINT chk_discussions_len CHECK (char_length(comment) BETWEEN 1 AND 2000 AND season_num >= 1 AND episode_num >= 1); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+-- Idempotent data integrity & length bounds (NOT VALID enforces all new writes without failing on legacy rows)
+DO $$ BEGIN ALTER TABLE public.title_reviews ADD CONSTRAINT chk_title_reviews_len CHECK (char_length(content) BETWEEN 1 AND 2500 AND char_length(review_title) <= 160) NOT VALID; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE public.public_lists ADD CONSTRAINT chk_public_lists_len CHECK (char_length(title) BETWEEN 1 AND 120 AND char_length(COALESCE(description, '')) <= 800 AND cardinality(title_ids) <= 200) NOT VALID; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE public.recommendations ADD CONSTRAINT chk_recommendations_len CHECK (char_length(note) BETWEEN 1 AND 800) NOT VALID; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE public.episode_discussions ADD CONSTRAINT chk_discussions_len CHECK (char_length(comment) BETWEEN 1 AND 2000 AND season_num >= 1 AND episode_num >= 1) NOT VALID; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- 10. Optional Starter Community Seed Data (Run if you want initial starter data directly in Supabase)
 -- You can run this in your Supabase SQL editor to populate your database with real initial community items:
