@@ -208,7 +208,7 @@ CREATE POLICY "Users can insert discussions" ON public.episode_discussions FOR I
 DROP POLICY IF EXISTS "Users can delete discussions" ON public.episode_discussions;
 CREATE POLICY "Users can delete discussions" ON public.episode_discussions FOR DELETE USING ((SELECT auth.uid()) = user_id);
 
--- Atomic Like Adjustment Function (Safe, race-condition-free)
+-- Atomic Like Adjustment Function (Hardened: strict delta +1/-1 and non-empty id)
 CREATE OR REPLACE FUNCTION public.adjust_community_likes(
     item_table TEXT,
     item_id TEXT,
@@ -220,6 +220,13 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
+    IF delta NOT IN (-1, 1) THEN
+        RAISE EXCEPTION 'Invalid like delta: must be -1 or 1';
+    END IF;
+    IF item_id IS NULL OR char_length(trim(item_id)) = 0 OR char_length(item_id) > 128 THEN
+        RAISE EXCEPTION 'Invalid item_id';
+    END IF;
+
     IF item_table = 'title_reviews' THEN
         UPDATE public.title_reviews SET likes_count = GREATEST(0, likes_count + delta) WHERE id = item_id;
     ELSIF item_table = 'public_lists' THEN
@@ -228,10 +235,20 @@ BEGIN
         UPDATE public.recommendations SET likes_count = GREATEST(0, likes_count + delta) WHERE id = item_id;
     ELSIF item_table = 'episode_discussions' THEN
         UPDATE public.episode_discussions SET likes_count = GREATEST(0, likes_count + delta) WHERE id = item_id;
+    ELSE
+        RAISE EXCEPTION 'Unsupported table';
     END IF;
 END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.adjust_community_likes(TEXT, TEXT, INTEGER) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.adjust_community_likes(TEXT, TEXT, INTEGER) TO anon;
+
+-- Idempotent data integrity & length bounds
+DO $$ BEGIN ALTER TABLE public.user_profiles ADD CONSTRAINT chk_user_profiles_name_len CHECK (char_length(name) BETWEEN 1 AND 50); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE public.user_library ADD CONSTRAINT chk_user_library_nonneg CHECK (position >= 0 AND duration >= 0); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE public.title_reviews ADD CONSTRAINT chk_title_reviews_len CHECK (char_length(content) BETWEEN 1 AND 2500 AND char_length(review_title) <= 160); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE public.public_lists ADD CONSTRAINT chk_public_lists_len CHECK (char_length(title) BETWEEN 1 AND 120 AND char_length(COALESCE(description, '')) <= 800 AND cardinality(title_ids) <= 200); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE public.recommendations ADD CONSTRAINT chk_recommendations_len CHECK (char_length(note) BETWEEN 1 AND 800); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE public.episode_discussions ADD CONSTRAINT chk_discussions_len CHECK (char_length(comment) BETWEEN 1 AND 2000 AND season_num >= 1 AND episode_num >= 1); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 

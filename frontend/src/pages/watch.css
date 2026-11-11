@@ -642,7 +642,10 @@
 /* Mobile Landscape Viewport (Phone rotated sideways) */
 @media (orientation: landscape) and (max-height: 520px) {
   .watch-top-bar {
-    padding: max(0.4rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) 0.4rem max(1rem, env(safe-area-inset-left));
+    padding: max(0.4rem, env(safe-area-inset-top), var(--safe-area-inset-top, 0px))
+      max(1rem, env(safe-area-inset-right), var(--safe-area-inset-right, 0px))
+      0.4rem
+      max(1rem, env(safe-area-inset-left), var(--safe-area-inset-left, 0px));
     background: linear-gradient(180deg, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.3) 70%, transparent 100%);
   }
 
@@ -862,7 +865,10 @@
 /* Mobile Landscape Viewport (Phone rotated sideways) */
 @media (orientation: landscape) and (max-height: 520px) {
   .watch-top-bar {
-    padding: max(0.4rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) 0.4rem max(1rem, env(safe-area-inset-left));
+    padding: max(0.4rem, env(safe-area-inset-top), var(--safe-area-inset-top, 0px))
+      max(1rem, env(safe-area-inset-right), var(--safe-area-inset-right, 0px))
+      0.4rem
+      max(1rem, env(safe-area-inset-left), var(--safe-area-inset-left, 0px));
     background: linear-gradient(180deg, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.3) 70%, transparent 100%);
   }
 

@@ -34,6 +34,29 @@ const emptyData = (): ProfileData => ({
   readNotifications: [],
 });
 
+function sanitizeName(value: unknown, fallback = 'Alex'): string {
+  const cleaned = typeof value === 'string' ? value.replace(/[\x00-\x1f\x7f]/g, '').trim() : '';
+  return cleaned.slice(0, 40) || fallback;
+}
+
+function sanitizeAvatar(value: unknown): number {
+  const num = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(num)) return 0;
+  return Math.max(0, Math.min(20, Math.trunc(num)));
+}
+
+function computeStructuralFingerprint(s: PersistedState): string {
+  const profKey = s.profiles.map((p) => `${p.id}:${p.name}:${p.avatar}:${p.kids ? 1 : 0}`).join('|');
+  const dataKey = s.profiles
+    .map((p) => {
+      const d = s.data[p.id];
+      if (!d) return p.id;
+      return `${p.id}=[${d.myList.join(',')}];[${d.likes.join(',')}];[${d.progress.map((pr) => pr.titleId).join(',')}]`;
+    })
+    .join('|');
+  return `${s.activeId || ''}#${profKey}#${dataKey}`;
+}
+
 /**
  * Validates and sanitizes raw state from localStorage or network to guarantee
  * that profiles, activeId, and per-profile library arrays always exist and are safe.
@@ -50,10 +73,10 @@ function sanitizePersistedState(stored: any): PersistedState {
 
   const profiles: Profile[] =
     Array.isArray(stored.profiles) && stored.profiles.length > 0
-      ? stored.profiles.map((p: any, idx: number) => ({
-          id: p?.id || `p-${idx}`,
-          name: p?.name || 'Alex',
-          avatar: typeof p?.avatar === 'number' ? p.avatar : 0,
+      ? stored.profiles.slice(0, MAX_PROFILES).map((p: any, idx: number) => ({
+          id: typeof p?.id === 'string' && p.id.trim() ? p.id.trim().slice(0, 64) : `p-${idx}`,
+          name: sanitizeName(p?.name, 'Alex'),
+          avatar: sanitizeAvatar(p?.avatar),
           kids: !!p?.kids,
         }))
       : defaultAlex;
@@ -69,10 +92,16 @@ function sanitizePersistedState(stored: any): PersistedState {
   for (const p of profiles) {
     const d = rawData[p.id];
     data[p.id] = {
-      myList: Array.isArray(d?.myList) ? d.myList.filter(Boolean) : [],
-      likes: Array.isArray(d?.likes) ? d.likes.filter(Boolean) : [],
-      progress: Array.isArray(d?.progress) ? d.progress.filter((x: any) => x && x.titleId) : [],
-      readNotifications: Array.isArray(d?.readNotifications) ? d.readNotifications.filter(Boolean) : [],
+      myList: Array.isArray(d?.myList) ? d.myList.filter((id: unknown) => typeof id === 'string' && id) : [],
+      likes: Array.isArray(d?.likes) ? d.likes.filter((id: unknown) => typeof id === 'string' && id) : [],
+      progress: Array.isArray(d?.progress)
+        ? d.progress
+            .filter((x: any) => x && typeof x.titleId === 'string' && x.titleId)
+            .slice(0, 30)
+        : [],
+      readNotifications: Array.isArray(d?.readNotifications)
+        ? d.readNotifications.filter((id: unknown) => typeof id === 'string' && id).slice(-60)
+        : [],
     };
   }
 
@@ -229,11 +258,15 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<PersistedState>(() => loadInitialState(user));
   const syncTimeoutRef = useRef<any>(null);
   const isRemoteLoadedRef = useRef<boolean>(false);
+  const isFromDatabaseRef = useRef<boolean>(false);
+  const lastRemoteFingerprintRef = useRef<string>('');
 
   // 1. When user account changes (sign in, sign up, switch user, or sign out)
   useEffect(() => {
     isRemoteLoadedRef.current = false;
+    isFromDatabaseRef.current = false;
     const initial = loadInitialState(user);
+    lastRemoteFingerprintRef.current = computeStructuralFingerprint(initial);
     setState(initial);
 
     // Asynchronous Supabase sync
@@ -243,8 +276,10 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         .then((remote) => {
           if (!isMounted) return;
           if (remote) {
+            isFromDatabaseRef.current = remote.isFromDatabase;
             setState((current) => {
               const merged = mergeRemoteAndLocal(current, remote);
+              lastRemoteFingerprintRef.current = computeStructuralFingerprint(merged);
               writeJSON(storageKey, merged);
               return merged;
             });
@@ -264,7 +299,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     }
   }, [user?.id, storageKey]);
 
-  // 2. Persist to user-specific localStorage and sync to Supabase account
+  // 2. Persist to user-specific localStorage and sync to Supabase without redundant Auth write storms
   useEffect(() => {
     writeJSON(storageKey, state);
 
@@ -274,10 +309,23 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     }
 
     if (userId && !userId.startsWith('demo-')) {
+      const fingerprint = computeStructuralFingerprint(state);
+      const structuralChanged = fingerprint !== lastRemoteFingerprintRef.current;
+
+      // When Postgres tables are active, periodic playback position ticks are already
+      // persisted via saveLibraryItemToDb; skip hammering auth.updateUser unless structure changed.
+      if (isFromDatabaseRef.current && !structuralChanged) {
+        return;
+      }
+
       if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+      const delayMs = structuralChanged ? 900 : 2200;
       syncTimeoutRef.current = setTimeout(() => {
-        syncFullStateToSupabase(userId, state.profiles, state.activeId, state.data);
-      }, 800);
+        lastRemoteFingerprintRef.current = fingerprint;
+        syncFullStateToSupabase(userId, state.profiles, state.activeId, state.data, {
+          syncAuthMetadata: !isFromDatabaseRef.current || structuralChanged,
+        });
+      }, delayMs);
     }
 
     return () => {
@@ -337,7 +385,13 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       signOut: () => setState((s) => ({ ...s, activeId: null })),
       addProfile: (p) => {
         const newId = `p-${Date.now().toString(36)}`;
-        const newProfile = { ...p, id: newId };
+        const newProfile: Profile = {
+          ...p,
+          id: newId,
+          name: sanitizeName(p.name, 'Viewer'),
+          avatar: sanitizeAvatar(p.avatar),
+          kids: Boolean(p.kids),
+        };
         setState((s) => {
           if (s.profiles.length >= MAX_PROFILES) return s;
           return {
@@ -354,11 +408,18 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         }
       },
       updateProfile: (id, patch) => {
+        const safePatch: Partial<Omit<Profile, 'id'>> = { ...patch };
+        if (patch.name !== undefined) {
+          safePatch.name = sanitizeName(patch.name, 'Viewer');
+        }
+        if (patch.avatar !== undefined) {
+          safePatch.avatar = sanitizeAvatar(patch.avatar);
+        }
         setState((s) => ({
           ...s,
           profiles: s.profiles.map((p) => {
             if (p.id === id) {
-              const updated = { ...p, ...patch };
+              const updated = { ...p, ...safePatch };
               if (userId && !userId.startsWith('demo-')) saveProfileToDb(userId, updated);
               return updated;
             }

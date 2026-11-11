@@ -1,4 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
+import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
+
+export const NATIVE_AUTH_SCHEME = 'app.vybe.stream';
+export const NATIVE_AUTH_CALLBACK_URL = `${NATIVE_AUTH_SCHEME}://login-callback`;
 
 // Read configuration from environment variables
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://bsnwcggmmekuhiiprftg.supabase.co';
@@ -20,6 +25,7 @@ export const supabase = createClient(
   supabaseAnonKey || 'placeholder-anon-key-configure-in-env',
   {
     auth: {
+      flowType: 'pkce',
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
@@ -74,11 +80,15 @@ export async function signInWithGoogle() {
   if (!isSupabaseConfigured()) {
     throw new Error('Supabase Anon Key is not configured in frontend/.env');
   }
-  const redirectTo = `${window.location.origin}/`;
+
+  const isNative = Capacitor.isNativePlatform();
+  const redirectTo = isNative ? NATIVE_AUTH_CALLBACK_URL : `${window.location.origin}/`;
+
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
       redirectTo,
+      skipBrowserRedirect: isNative,
       queryParams: {
         access_type: 'offline',
         prompt: 'consent',
@@ -86,6 +96,14 @@ export async function signInWithGoogle() {
     },
   });
   if (error) throw error;
+
+  if (isNative && data?.url) {
+    await Browser.open({
+      url: data.url,
+      toolbarColor: '#141414',
+    });
+  }
+
   return data;
 }
 

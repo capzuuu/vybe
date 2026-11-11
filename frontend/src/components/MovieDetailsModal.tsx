@@ -31,6 +31,7 @@ export function MovieDetailsModal() {
 
   const [selectedSeason, setSelectedSeason] = useState(1);
   const [isPlayingTrailer, setIsPlayingTrailer] = useState(false);
+  const [isVideoReady, setIsVideoReady] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false);
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
@@ -99,22 +100,35 @@ export function MovieDetailsModal() {
   // Reset season and start trailer after delay
   useEffect(() => {
     setSelectedSeason(1);
+    setIsVideoReady(false);
     setIsPlayingTrailer(false);
     setIsSynopsisExpanded(false);
-    if (title) {
+    if (title?.id && title?.videoUrl) {
       const timer = setTimeout(() => {
         setIsPlayingTrailer(true);
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [title]);
+  }, [title?.id, title?.videoUrl]);
 
   useEffect(() => {
     if (isPlayingTrailer && videoRef.current && title) {
       videoRef.current.currentTime = title.trailerStart || 0;
-      videoRef.current.play().catch(() => setIsPlayingTrailer(false));
+      videoRef.current.play().catch(() => {
+        setIsVideoReady(false);
+        setIsPlayingTrailer(false);
+      });
     }
-  }, [isPlayingTrailer, title]);
+  }, [isPlayingTrailer, title?.id]);
+
+  useEffect(() => {
+    if (!isPlayingTrailer || isVideoReady) return;
+    const stallTimer = window.setTimeout(() => {
+      setIsVideoReady(false);
+      setIsPlayingTrailer(false);
+    }, 6000);
+    return () => window.clearTimeout(stallTimer);
+  }, [isPlayingTrailer, isVideoReady]);
 
   if (!isOpen) return null;
 
@@ -164,19 +178,31 @@ export function MovieDetailsModal() {
           <SmartImage
             src={title.backdrop}
             alt={title.name}
-            className={`modal-hero__img ${isPlayingTrailer ? 'hidden' : ''}`}
+            className={`modal-hero__img ${isVideoReady ? 'hidden' : ''}`}
+            eager
             fallbackLabel={title.name}
             accent={title.accent}
           />
 
-          {isPlayingTrailer && (
+          {isPlayingTrailer && title.videoUrl && (
             <video
               ref={videoRef}
               src={title.videoUrl}
-              className="modal-hero__video"
+              poster={title.backdrop}
+              preload="auto"
+              className={`modal-hero__video ${isVideoReady ? 'modal-hero__video--ready' : ''}`}
               autoPlay
               playsInline
               muted={isMuted}
+              onPlaying={() => setIsVideoReady(true)}
+              onError={() => {
+                setIsVideoReady(false);
+                setIsPlayingTrailer(false);
+              }}
+              onEnded={() => {
+                setIsVideoReady(false);
+                setIsPlayingTrailer(false);
+              }}
             />
           )}
 
@@ -239,7 +265,7 @@ export function MovieDetailsModal() {
                 <Share2 size={18} />
               </button>
 
-              {isPlayingTrailer && (
+              {isVideoReady && (
                 <button
                   type="button"
                   className="circle-btn modal-hero__mute"

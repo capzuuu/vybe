@@ -11,6 +11,28 @@ export interface RemoteLibraryResult {
 // Module-level cache to track if database tables exist, avoiding repeated 404 network requests
 let isUserProfileTableAvailable: boolean | null = null;
 
+// Singleflight coalescing state for full Supabase syncs to prevent write storms
+interface SyncSnapshot {
+  userId: string;
+  profiles: Profile[];
+  activeId: string | null;
+  data: Record<string, ProfileData>;
+  syncAuthMetadata?: boolean;
+}
+let syncInFlight: Promise<void> | null = null;
+let pendingSyncSnapshot: SyncSnapshot | null = null;
+
+function clampNonNegativeInt(value: unknown, max = 86400 * 10): number {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num <= 0) return 0;
+  return Math.min(max, Math.round(num));
+}
+
+function sanitizeProfileName(name: unknown): string {
+  const cleaned = typeof name === 'string' ? name.replace(/[\x00-\x1f\x7f]/g, '').trim() : '';
+  return cleaned.slice(0, 40) || 'Viewer';
+}
+
 export interface LibraryItemPayload {
   inWatchlist: boolean;
   isLiked: boolean;
@@ -196,9 +218,9 @@ export async function saveProfileToDb(userId: string, profile: Profile): Promise
     const { error } = await supabase.from('user_profiles').upsert({
       id: profile.id,
       user_id: userId,
-      name: profile.name,
-      avatar: profile.avatar,
-      is_kids: profile.kids,
+      name: sanitizeProfileName(profile.name),
+      avatar: Math.max(0, Math.min(20, Math.trunc(Number(profile.avatar) || 0))),
+      is_kids: Boolean(profile.kids),
       updated_at: new Date().toISOString(),
     });
     if (error && (error.code === 'PGRST204' || (error as any).status === 404)) {
@@ -264,8 +286,8 @@ export async function saveLibraryItemToDb(
       title_id: titleId,
       in_watchlist: Boolean(item.inWatchlist),
       is_liked: Boolean(item.isLiked),
-      position: item.position ?? 0,
-      duration: item.duration ?? 0,
+      position: clampNonNegativeInt(item.position),
+      duration: clampNonNegativeInt(item.duration),
       updated_at: new Date().toISOString(),
     });
     if (error && (error.code === 'PGRST204' || (error as any).status === 404)) {
@@ -276,31 +298,36 @@ export async function saveLibraryItemToDb(
   }
 }
 
-/**
- * Full synchronization to Supabase:
- * 1. Immediately updates `user_metadata` for 100% resilient cross-device recovery
- * 2. Writes to `user_profiles` and `user_library` tables if present
- */
-export async function syncFullStateToSupabase(
-  userId: string,
-  profiles: Profile[],
-  activeId: string | null,
-  data: Record<string, ProfileData>
-): Promise<void> {
-  if (!isSupabaseConfigured() || !userId || userId.startsWith('demo-')) return;
+async function executeFullSync(snapshot: SyncSnapshot): Promise<void> {
+  const { userId, profiles, activeId, data, syncAuthMetadata = true } = snapshot;
 
-  // 1. Primary zero-config cloud sync: Always update user_metadata in Supabase Auth
-  try {
-    await supabase.auth.updateUser({
-      data: {
-        vybe_profiles: profiles,
-        vybe_active_id: activeId,
-        vybe_data: data,
-        vybe_synced_at: new Date().toISOString(),
-      },
-    });
-  } catch (err) {
-    console.warn('Error saving to user_metadata:', err);
+  // Compact progress arrays so user_metadata never bloats JWT/session storage
+  const compactData: Record<string, ProfileData> = {};
+  for (const pid of Object.keys(data)) {
+    const pData = data[pid];
+    if (!pData) continue;
+    compactData[pid] = {
+      myList: Array.isArray(pData.myList) ? pData.myList.slice(0, 200) : [],
+      likes: Array.isArray(pData.likes) ? pData.likes.slice(0, 200) : [],
+      progress: Array.isArray(pData.progress) ? pData.progress.slice(0, 30) : [],
+      readNotifications: Array.isArray(pData.readNotifications) ? pData.readNotifications.slice(-60) : [],
+    };
+  }
+
+  // 1. Update user_metadata only when database tables are unavailable or explicitly requested
+  if (syncAuthMetadata || isUserProfileTableAvailable === false) {
+    try {
+      await supabase.auth.updateUser({
+        data: {
+          vybe_profiles: profiles,
+          vybe_active_id: activeId,
+          vybe_data: compactData,
+          vybe_synced_at: new Date().toISOString(),
+        },
+      });
+    } catch (err) {
+      console.warn('Error saving to user_metadata:', err);
+    }
   }
 
   if (isUserProfileTableAvailable === false) return;
@@ -313,24 +340,41 @@ export async function syncFullStateToSupabase(
         profiles.map((p) => ({
           id: p.id,
           user_id: userId,
-          name: p.name,
-          avatar: p.avatar,
-          is_kids: p.kids,
+          name: sanitizeProfileName(p.name),
+          avatar: Math.max(0, Math.min(20, Math.trunc(Number(p.avatar) || 0))),
+          is_kids: Boolean(p.kids),
           updated_at: new Date().toISOString(),
         }))
       );
       if (upsertProfilesErr && (upsertProfilesErr.code === 'PGRST204' || (upsertProfilesErr as any).status === 404)) {
         isUserProfileTableAvailable = false;
+        // Fallback to user_metadata immediately so state isn't lost
+        try {
+          await supabase.auth.updateUser({
+            data: {
+              vybe_profiles: profiles,
+              vybe_active_id: activeId,
+              vybe_data: compactData,
+              vybe_synced_at: new Date().toISOString(),
+            },
+          });
+        } catch {}
         return;
       }
     }
 
     // 2b. Collect all library items across profiles for single chunked batch upsert
     const rowsToUpsert: any[] = [];
-    for (const pid of Object.keys(data)) {
-      const pData = data[pid];
+    for (const pid of Object.keys(compactData)) {
+      const pData = compactData[pid];
       if (!pData) continue;
 
+      const progressById = new Map<string, ProgressEntry>();
+      for (const pr of pData.progress) {
+        if (pr?.titleId) progressById.set(pr.titleId, pr);
+      }
+      const watchlistSet = new Set(pData.myList);
+      const likesSet = new Set(pData.likes);
       const allTitleIds = new Set<string>([
         ...pData.myList,
         ...pData.likes,
@@ -338,11 +382,11 @@ export async function syncFullStateToSupabase(
       ]);
 
       for (const titleId of allTitleIds) {
-        const prog = pData.progress.find((pr) => pr.titleId === titleId);
-        const inWatchlist = pData.myList.includes(titleId);
-        const isLiked = pData.likes.includes(titleId);
-        const position = prog?.position ?? 0;
-        const duration = prog?.duration ?? 0;
+        const prog = progressById.get(titleId);
+        const inWatchlist = watchlistSet.has(titleId);
+        const isLiked = likesSet.has(titleId);
+        const position = clampNonNegativeInt(prog?.position);
+        const duration = clampNonNegativeInt(prog?.duration);
 
         if (inWatchlist || isLiked || position > 0) {
           rowsToUpsert.push({
@@ -368,4 +412,47 @@ export async function syncFullStateToSupabase(
   } catch (err) {
     console.warn('Error syncing to database tables:', err);
   }
+}
+
+/**
+ * Full synchronization to Supabase with singleflight coalescing so rapid updates
+ * collapse into at most one active request plus one trailing latest snapshot.
+ */
+export async function syncFullStateToSupabase(
+  userId: string,
+  profiles: Profile[],
+  activeId: string | null,
+  data: Record<string, ProfileData>,
+  options?: { syncAuthMetadata?: boolean }
+): Promise<void> {
+  if (!isSupabaseConfigured() || !userId || userId.startsWith('demo-')) return;
+
+  const snapshot: SyncSnapshot = {
+    userId,
+    profiles,
+    activeId,
+    data,
+    syncAuthMetadata: options?.syncAuthMetadata ?? true,
+  };
+
+  if (syncInFlight) {
+    pendingSyncSnapshot = {
+      ...snapshot,
+      syncAuthMetadata: Boolean(pendingSyncSnapshot?.syncAuthMetadata || snapshot.syncAuthMetadata),
+    };
+    return syncInFlight;
+  }
+
+  syncInFlight = (async () => {
+    let next: SyncSnapshot | null = snapshot;
+    while (next) {
+      await executeFullSync(next);
+      next = pendingSyncSnapshot;
+      pendingSyncSnapshot = null;
+    }
+  })().finally(() => {
+    syncInFlight = null;
+  });
+
+  return syncInFlight;
 }

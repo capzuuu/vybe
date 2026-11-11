@@ -17,6 +17,7 @@ export function HoverPreview() {
   const toggleLike = useLikeToggle();
 
   const [isPlayingVideo, setIsPlayingVideo] = useState(false);
+  const [isVideoReady, setIsVideoReady] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -25,24 +26,35 @@ export function HoverPreview() {
   const inList = title ? isInList(title.id) : false;
   const liked = title ? isLiked(title.id) : false;
 
-  // Auto-play trailer video after 800ms
+  // Auto-play trailer video after 850ms
   useEffect(() => {
-    if (!title) return;
+    setIsVideoReady(false);
     setIsPlayingVideo(false);
+    if (!title?.videoUrl) return;
     const timer = setTimeout(() => {
       setIsPlayingVideo(true);
     }, 850);
     return () => clearTimeout(timer);
-  }, [title]);
+  }, [title?.id, title?.videoUrl]);
 
   useEffect(() => {
     if (isPlayingVideo && videoRef.current && title) {
       videoRef.current.currentTime = title.trailerStart || 0;
       videoRef.current.play().catch(() => {
+        setIsVideoReady(false);
         setIsPlayingVideo(false);
       });
     }
-  }, [isPlayingVideo, title]);
+  }, [isPlayingVideo, title?.id]);
+
+  useEffect(() => {
+    if (!isPlayingVideo || isVideoReady) return;
+    const stallTimer = window.setTimeout(() => {
+      setIsVideoReady(false);
+      setIsPlayingVideo(false);
+    }, 6000);
+    return () => window.clearTimeout(stallTimer);
+  }, [isPlayingVideo, isVideoReady]);
 
   if (!preview || !title) return null;
 
@@ -78,19 +90,31 @@ export function HoverPreview() {
           <SmartImage
             src={title.backdrop}
             alt={title.name}
-            className={`hover-preview__img ${isPlayingVideo ? 'hidden' : ''}`}
+            className={`hover-preview__img ${isVideoReady ? 'hidden' : ''}`}
+            eager
             fallbackLabel={title.name}
             accent={title.accent}
           />
 
-          {isPlayingVideo && (
+          {isPlayingVideo && title.videoUrl && (
             <video
               ref={videoRef}
               src={title.videoUrl}
-              className="hover-preview__video"
+              poster={title.backdrop}
+              preload="auto"
+              className={`hover-preview__video ${isVideoReady ? 'hover-preview__video--ready' : ''}`}
               autoPlay
               playsInline
               muted={isMuted}
+              onPlaying={() => setIsVideoReady(true)}
+              onError={() => {
+                setIsVideoReady(false);
+                setIsPlayingVideo(false);
+              }}
+              onEnded={() => {
+                setIsVideoReady(false);
+                setIsPlayingVideo(false);
+              }}
             />
           )}
 
@@ -98,7 +122,7 @@ export function HoverPreview() {
             <TitleArt title={title} size="preview" />
           </div>
 
-          {isPlayingVideo && (
+          {isVideoReady && (
             <button
               type="button"
               className="hover-preview__mute"

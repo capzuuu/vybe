@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { useProfiles } from './ProfileContext';
 import { useToast } from './ToastContext';
@@ -74,12 +74,24 @@ interface CommunityContextType {
 
 const CommunityContext = createContext<CommunityContextType | undefined>(undefined);
 
+function sanitizeText(value: unknown, maxLength: number): string {
+  if (typeof value !== 'string') return '';
+  return value.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '').trim().slice(0, maxLength);
+}
+
+function isRealCloudUser(userId?: string | null): userId is string {
+  return Boolean(userId && !userId.startsWith('demo-') && isSupabaseConfigured());
+}
+
 export function CommunityProvider({ children }: { children: React.ReactNode }) {
-  const { user, isAuthenticated } = useAuth();
+  const { user } = useAuth();
   const { activeProfile } = useProfiles();
   const { showToast } = useToast();
 
   const [state, setState] = useState<CommunityStorageState>(() => loadCommunityState());
+  const stateRef = useRef<CommunityStorageState>(state);
+  stateRef.current = state;
+  const pendingLikeIdsRef = useRef<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Save to local storage cache on state change
@@ -194,28 +206,24 @@ export function CommunityProvider({ children }: { children: React.ReactNode }) {
     loadCloudCommunity();
   }, [loadCloudCommunity]);
 
-  const activeUserName = activeProfile?.name || user?.user_metadata?.name || 'Vybe Cinephile';
-  const activeUserAvatar = activeProfile?.avatar ?? 0;
-  const activeUserId = user?.id || '';
+  const activeUserName = sanitizeText(activeProfile?.name || user?.user_metadata?.name || 'Vybe Cinephile', 40) || 'Vybe Cinephile';
+  const activeUserAvatar = Math.max(0, Math.min(20, Math.trunc(Number(activeProfile?.avatar) || 0)));
 
-  // Helper to adjust likes in Supabase
-  const adjustLikesInSupabase = async (tableName: string, itemId: string, delta: number, nextCount: number) => {
+  // Helper to atomically adjust likes via hardened Supabase RPC (no direct table-overwrite bypass)
+  const adjustLikesInSupabase = async (
+    tableName: 'title_reviews' | 'public_lists' | 'recommendations' | 'episode_discussions',
+    itemId: string,
+    delta: 1 | -1
+  ): Promise<void> => {
+    if (!isSupabaseConfigured()) return;
     try {
-      const { error: rpcError } = await supabase.rpc('adjust_community_likes', {
+      await supabase.rpc('adjust_community_likes', {
         item_table: tableName,
         item_id: itemId,
         delta,
       });
-
-      if (rpcError) {
-        // Fallback to direct table update
-        await supabase
-          .from(tableName)
-          .update({ likes_count: nextCount })
-          .eq('id', itemId);
-      }
     } catch {
-      // Graceful fallback to local optimistic state
+      // Keep local state resilient if offline
     }
   };
 
@@ -234,6 +242,14 @@ export function CommunityProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
+      const cleanTitle = sanitizeText(params.reviewTitle, 120);
+      const cleanContent = sanitizeText(params.content, 2000);
+      if (!cleanContent) {
+        showToast('Please enter your review text before publishing.', { icon: 'info' });
+        return false;
+      }
+      const clampedRating = Math.max(1, Math.min(5, Math.round(Number(params.rating) || 5)));
+
       const reviewId = crypto.randomUUID ? crypto.randomUUID() : `rev-${Date.now()}`;
       const newReview: UserReview = {
         id: reviewId,
@@ -241,15 +257,17 @@ export function CommunityProvider({ children }: { children: React.ReactNode }) {
         userName: activeUserName,
         userAvatar: activeUserAvatar,
         titleId: params.titleId,
-        titleName: params.titleName,
-        rating: params.rating,
-        reviewTitle: params.reviewTitle,
-        content: params.content,
+        titleName: sanitizeText(params.titleName, 160),
+        rating: clampedRating,
+        reviewTitle: cleanTitle,
+        content: cleanContent,
         createdAt: 'Just now',
         likes: 0,
         isLikedByMe: false,
-        containsSpoilers: params.containsSpoilers,
+        containsSpoilers: Boolean(params.containsSpoilers),
       };
+
+      const prevReviewsSnapshot = stateRef.current.reviews;
 
       // Optimistic update
       setState((prev) => ({
@@ -257,65 +275,67 @@ export function CommunityProvider({ children }: { children: React.ReactNode }) {
         reviews: [newReview, ...prev.reviews.filter((r) => !(r.titleId === params.titleId && r.userId === user.id))],
       }));
 
+      if (!isRealCloudUser(user.id)) {
+        showToast(`Saved review locally for ${newReview.titleName} (demo mode).`, { icon: 'check' });
+        return true;
+      }
+
       const { error } = await supabase.from('title_reviews').insert({
         id: newReview.id,
         user_id: user.id,
         user_name: activeUserName,
         user_avatar: activeUserAvatar,
-        title_id: params.titleId,
-        title_name: params.titleName,
-        rating: params.rating,
-        review_title: params.reviewTitle,
-        content: params.content,
-        contains_spoilers: params.containsSpoilers,
+        title_id: newReview.titleId,
+        title_name: newReview.titleName,
+        rating: clampedRating,
+        review_title: cleanTitle,
+        content: cleanContent,
+        contains_spoilers: newReview.containsSpoilers,
         likes_count: 0,
       });
 
       if (error) {
         console.error('[Community] Review insert error:', error);
+        setState((prev) => ({ ...prev, reviews: prevReviewsSnapshot }));
         showToast(error.message || 'Failed to save review to Supabase', { icon: 'info' });
         return false;
       }
 
-      showToast(`Review published for ${params.titleName}! ★ ${params.rating}/5`, { icon: 'check' });
+      showToast(`Review published for ${newReview.titleName}! ★ ${clampedRating}/5`, { icon: 'check' });
       return true;
     },
     [user?.id, activeUserName, activeUserAvatar, showToast]
   );
 
-  // Like review
+  // Like review (computes delta synchronously from stateRef to avoid React 18 batching race)
   const likeReview = useCallback(
     async (reviewId: string) => {
-      let delta = 1;
-      let nextCount = 1;
+      if (pendingLikeIdsRef.current.has(reviewId)) return;
+      pendingLikeIdsRef.current.add(reviewId);
+      try {
+        const currentlyLiked = stateRef.current.likedIds.includes(reviewId);
+        const delta: 1 | -1 = currentlyLiked ? -1 : 1;
 
-      setState((prev) => {
-        const currentlyLiked = prev.likedIds.includes(reviewId);
-        delta = currentlyLiked ? -1 : 1;
-        const nextLikedIds = currentlyLiked
-          ? prev.likedIds.filter((id) => id !== reviewId)
-          : [...prev.likedIds, reviewId];
-
-        const nextReviews = prev.reviews.map((r) => {
-          if (r.id === reviewId) {
-            nextCount = Math.max(0, r.likes + delta);
-            return {
-              ...r,
-              likes: nextCount,
-              isLikedByMe: !currentlyLiked,
-            };
-          }
-          return r;
+        setState((prev) => {
+          const alreadyLiked = prev.likedIds.includes(reviewId);
+          if (alreadyLiked !== currentlyLiked) return prev;
+          return {
+            ...prev,
+            likedIds: currentlyLiked
+              ? prev.likedIds.filter((id) => id !== reviewId)
+              : [...prev.likedIds, reviewId],
+            reviews: prev.reviews.map((r) =>
+              r.id === reviewId
+                ? { ...r, likes: Math.max(0, r.likes + delta), isLikedByMe: !currentlyLiked }
+                : r
+            ),
+          };
         });
 
-        return {
-          ...prev,
-          likedIds: nextLikedIds,
-          reviews: nextReviews,
-        };
-      });
-
-      await adjustLikesInSupabase('title_reviews', reviewId, delta, nextCount);
+        await adjustLikesInSupabase('title_reviews', reviewId, delta);
+      } finally {
+        pendingLikeIdsRef.current.delete(reviewId);
+      }
     },
     []
   );
@@ -323,14 +343,16 @@ export function CommunityProvider({ children }: { children: React.ReactNode }) {
   // Delete review
   const deleteReview = useCallback(
     async (reviewId: string) => {
+      const prevReviews = stateRef.current.reviews;
       setState((prev) => ({
         ...prev,
         reviews: prev.reviews.filter((r) => r.id !== reviewId),
       }));
 
-      if (user?.id) {
+      if (isRealCloudUser(user?.id)) {
         const { error } = await supabase.from('title_reviews').delete().match({ id: reviewId, user_id: user.id });
         if (error) {
+          setState((prev) => ({ ...prev, reviews: prevReviews }));
           showToast('Failed to delete review: ' + error.message, { icon: 'info' });
           return;
         }
@@ -353,46 +375,60 @@ export function CommunityProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
+      const cleanTitle = sanitizeText(params.title, 100);
+      if (!cleanTitle) {
+        showToast('Please provide a title for your list.', { icon: 'info' });
+        return false;
+      }
+      const cleanDesc = sanitizeText(params.description, 500);
+      const cleanIds = Array.from(new Set(params.titleIds.filter((id) => typeof id === 'string' && id))).slice(0, 100);
+
       const listId = crypto.randomUUID ? crypto.randomUUID() : `list-${Date.now()}`;
       const newList: PublicList = {
         id: listId,
         userId: user.id,
         userName: activeUserName,
         userAvatar: activeUserAvatar,
-        title: params.title,
-        description: params.description,
-        isPublic: params.isPublic,
-        titleIds: params.titleIds,
+        title: cleanTitle,
+        description: cleanDesc,
+        isPublic: Boolean(params.isPublic),
+        titleIds: cleanIds,
         createdAt: 'Just now',
         likes: 0,
         isLikedByMe: false,
       };
 
-      // Optimistic update
+      const prevLists = stateRef.current.lists;
       setState((prev) => ({
         ...prev,
         lists: [newList, ...prev.lists],
       }));
+
+      if (!isRealCloudUser(user.id)) {
+        showToast(`Custom list "${cleanTitle}" saved locally (demo mode).`, { icon: 'check' });
+        return true;
+      }
 
       const { error } = await supabase.from('public_lists').insert({
         id: newList.id,
         user_id: user.id,
         user_name: activeUserName,
         user_avatar: activeUserAvatar,
-        title: params.title,
-        description: params.description,
-        is_public: params.isPublic,
-        title_ids: params.titleIds,
+        title: cleanTitle,
+        description: cleanDesc,
+        is_public: newList.isPublic,
+        title_ids: cleanIds,
         likes_count: 0,
       });
 
       if (error) {
         console.error('[Community] List insert error:', error);
+        setState((prev) => ({ ...prev, lists: prevLists }));
         showToast(error.message || 'Failed to save list to Supabase', { icon: 'info' });
         return false;
       }
 
-      showToast(`Custom list "${params.title}" published! 🎬`, { icon: 'check' });
+      showToast(`Custom list "${cleanTitle}" published! 🎬`, { icon: 'check' });
       return true;
     },
     [user?.id, activeUserName, activeUserAvatar, showToast]
@@ -401,36 +437,32 @@ export function CommunityProvider({ children }: { children: React.ReactNode }) {
   // Like list
   const likeList = useCallback(
     async (listId: string) => {
-      let delta = 1;
-      let nextCount = 1;
+      if (pendingLikeIdsRef.current.has(listId)) return;
+      pendingLikeIdsRef.current.add(listId);
+      try {
+        const currentlyLiked = stateRef.current.likedIds.includes(listId);
+        const delta: 1 | -1 = currentlyLiked ? -1 : 1;
 
-      setState((prev) => {
-        const currentlyLiked = prev.likedIds.includes(listId);
-        delta = currentlyLiked ? -1 : 1;
-        const nextLikedIds = currentlyLiked
-          ? prev.likedIds.filter((id) => id !== listId)
-          : [...prev.likedIds, listId];
-
-        const nextLists = prev.lists.map((l) => {
-          if (l.id === listId) {
-            nextCount = Math.max(0, l.likes + delta);
-            return {
-              ...l,
-              likes: nextCount,
-              isLikedByMe: !currentlyLiked,
-            };
-          }
-          return l;
+        setState((prev) => {
+          const alreadyLiked = prev.likedIds.includes(listId);
+          if (alreadyLiked !== currentlyLiked) return prev;
+          return {
+            ...prev,
+            likedIds: currentlyLiked
+              ? prev.likedIds.filter((id) => id !== listId)
+              : [...prev.likedIds, listId],
+            lists: prev.lists.map((l) =>
+              l.id === listId
+                ? { ...l, likes: Math.max(0, l.likes + delta), isLikedByMe: !currentlyLiked }
+                : l
+            ),
+          };
         });
 
-        return {
-          ...prev,
-          likedIds: nextLikedIds,
-          lists: nextLists,
-        };
-      });
-
-      await adjustLikesInSupabase('public_lists', listId, delta, nextCount);
+        await adjustLikesInSupabase('public_lists', listId, delta);
+      } finally {
+        pendingLikeIdsRef.current.delete(listId);
+      }
     },
     []
   );
@@ -438,14 +470,16 @@ export function CommunityProvider({ children }: { children: React.ReactNode }) {
   // Delete list
   const deleteList = useCallback(
     async (listId: string) => {
+      const prevLists = stateRef.current.lists;
       setState((prev) => ({
         ...prev,
         lists: prev.lists.filter((l) => l.id !== listId),
       }));
 
-      if (user?.id) {
+      if (isRealCloudUser(user?.id)) {
         const { error } = await supabase.from('public_lists').delete().match({ id: listId, user_id: user.id });
         if (error) {
+          setState((prev) => ({ ...prev, lists: prevLists }));
           showToast('Failed to delete list: ' + error.message, { icon: 'info' });
           return;
         }
@@ -468,6 +502,12 @@ export function CommunityProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
+      const cleanNote = sanitizeText(params.note, 500);
+      if (!cleanNote) {
+        showToast('Please add a short recommendation note.', { icon: 'info' });
+        return false;
+      }
+
       const recId = crypto.randomUUID ? crypto.randomUUID() : `rec-${Date.now()}`;
       const newRec: Recommendation = {
         id: recId,
@@ -475,39 +515,45 @@ export function CommunityProvider({ children }: { children: React.ReactNode }) {
         userName: activeUserName,
         userAvatar: activeUserAvatar,
         titleId: params.titleId,
-        titleName: params.titleName,
+        titleName: sanitizeText(params.titleName, 160),
         titleBackdrop: params.titleBackdrop,
-        note: params.note,
+        note: cleanNote,
         createdAt: 'Just now',
         likes: 0,
         isLikedByMe: false,
       };
 
-      // Optimistic update
+      const prevRecs = stateRef.current.recommendations;
       setState((prev) => ({
         ...prev,
         recommendations: [newRec, ...prev.recommendations],
       }));
+
+      if (!isRealCloudUser(user.id)) {
+        showToast(`Recommended ${newRec.titleName} locally (demo mode).`, { icon: 'check' });
+        return true;
+      }
 
       const { error } = await supabase.from('recommendations').insert({
         id: newRec.id,
         user_id: user.id,
         user_name: activeUserName,
         user_avatar: activeUserAvatar,
-        title_id: params.titleId,
-        title_name: params.titleName,
+        title_id: newRec.titleId,
+        title_name: newRec.titleName,
         title_backdrop: params.titleBackdrop,
-        note: params.note,
+        note: cleanNote,
         likes_count: 0,
       });
 
       if (error) {
         console.error('[Community] Recommendation insert error:', error);
+        setState((prev) => ({ ...prev, recommendations: prevRecs }));
         showToast(error.message || 'Failed to share recommendation to Supabase', { icon: 'info' });
         return false;
       }
 
-      showToast(`Recommended ${params.titleName} to the community! 🍿`, { icon: 'check' });
+      showToast(`Recommended ${newRec.titleName} to the community! 🍿`, { icon: 'check' });
       return true;
     },
     [user?.id, activeUserName, activeUserAvatar, showToast]
@@ -516,36 +562,32 @@ export function CommunityProvider({ children }: { children: React.ReactNode }) {
   // Like recommendation
   const likeRecommendation = useCallback(
     async (recId: string) => {
-      let delta = 1;
-      let nextCount = 1;
+      if (pendingLikeIdsRef.current.has(recId)) return;
+      pendingLikeIdsRef.current.add(recId);
+      try {
+        const currentlyLiked = stateRef.current.likedIds.includes(recId);
+        const delta: 1 | -1 = currentlyLiked ? -1 : 1;
 
-      setState((prev) => {
-        const currentlyLiked = prev.likedIds.includes(recId);
-        delta = currentlyLiked ? -1 : 1;
-        const nextLikedIds = currentlyLiked
-          ? prev.likedIds.filter((id) => id !== recId)
-          : [...prev.likedIds, recId];
-
-        const nextRecs = prev.recommendations.map((rec) => {
-          if (rec.id === recId) {
-            nextCount = Math.max(0, rec.likes + delta);
-            return {
-              ...rec,
-              likes: nextCount,
-              isLikedByMe: !currentlyLiked,
-            };
-          }
-          return rec;
+        setState((prev) => {
+          const alreadyLiked = prev.likedIds.includes(recId);
+          if (alreadyLiked !== currentlyLiked) return prev;
+          return {
+            ...prev,
+            likedIds: currentlyLiked
+              ? prev.likedIds.filter((id) => id !== recId)
+              : [...prev.likedIds, recId],
+            recommendations: prev.recommendations.map((rec) =>
+              rec.id === recId
+                ? { ...rec, likes: Math.max(0, rec.likes + delta), isLikedByMe: !currentlyLiked }
+                : rec
+            ),
+          };
         });
 
-        return {
-          ...prev,
-          likedIds: nextLikedIds,
-          recommendations: nextRecs,
-        };
-      });
-
-      await adjustLikesInSupabase('recommendations', recId, delta, nextCount);
+        await adjustLikesInSupabase('recommendations', recId, delta);
+      } finally {
+        pendingLikeIdsRef.current.delete(recId);
+      }
     },
     []
   );
@@ -553,14 +595,16 @@ export function CommunityProvider({ children }: { children: React.ReactNode }) {
   // Delete recommendation
   const deleteRecommendation = useCallback(
     async (recId: string) => {
+      const prevRecs = stateRef.current.recommendations;
       setState((prev) => ({
         ...prev,
         recommendations: prev.recommendations.filter((r) => r.id !== recId),
       }));
 
-      if (user?.id) {
+      if (isRealCloudUser(user?.id)) {
         const { error } = await supabase.from('recommendations').delete().match({ id: recId, user_id: user.id });
         if (error) {
+          setState((prev) => ({ ...prev, recommendations: prevRecs }));
           showToast('Failed to delete recommendation: ' + error.message, { icon: 'info' });
           return;
         }
@@ -586,6 +630,12 @@ export function CommunityProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
+      const cleanComment = sanitizeText(params.comment, 1500);
+      if (!cleanComment) {
+        showToast('Please enter a comment before posting.', { icon: 'info' });
+        return false;
+      }
+
       const discId = crypto.randomUUID ? crypto.randomUUID() : `disc-${Date.now()}`;
       const newDisc: EpisodeDiscussion = {
         id: discId,
@@ -593,45 +643,51 @@ export function CommunityProvider({ children }: { children: React.ReactNode }) {
         userName: activeUserName,
         userAvatar: activeUserAvatar,
         titleId: params.titleId,
-        titleName: params.titleName,
-        seasonNum: params.seasonNum,
-        episodeNum: params.episodeNum,
-        episodeName: params.episodeName,
-        comment: params.comment,
+        titleName: sanitizeText(params.titleName, 160),
+        seasonNum: Math.max(1, Math.trunc(Number(params.seasonNum) || 1)),
+        episodeNum: Math.max(1, Math.trunc(Number(params.episodeNum) || 1)),
+        episodeName: sanitizeText(params.episodeName, 160),
+        comment: cleanComment,
         createdAt: 'Just now',
         likes: 0,
         isLikedByMe: false,
-        isSpoiler: params.isSpoiler,
+        isSpoiler: Boolean(params.isSpoiler),
       };
 
-      // Optimistic update
+      const prevDiscs = stateRef.current.discussions;
       setState((prev) => ({
         ...prev,
         discussions: [newDisc, ...prev.discussions],
       }));
+
+      if (!isRealCloudUser(user.id)) {
+        showToast(`Posted debate locally for S${newDisc.seasonNum}:E${newDisc.episodeNum} (demo mode).`, { icon: 'check' });
+        return true;
+      }
 
       const { error } = await supabase.from('episode_discussions').insert({
         id: newDisc.id,
         user_id: user.id,
         user_name: activeUserName,
         user_avatar: activeUserAvatar,
-        title_id: params.titleId,
-        title_name: params.titleName,
-        season_num: params.seasonNum,
-        episode_num: params.episodeNum,
-        episode_name: params.episodeName,
-        comment: params.comment,
-        is_spoiler: params.isSpoiler,
+        title_id: newDisc.titleId,
+        title_name: newDisc.titleName,
+        season_num: newDisc.seasonNum,
+        episode_num: newDisc.episodeNum,
+        episode_name: newDisc.episodeName,
+        comment: cleanComment,
+        is_spoiler: newDisc.isSpoiler,
         likes_count: 0,
       });
 
       if (error) {
         console.error('[Community] Discussion insert error:', error);
+        setState((prev) => ({ ...prev, discussions: prevDiscs }));
         showToast(error.message || 'Failed to post debate to Supabase', { icon: 'info' });
         return false;
       }
 
-      showToast(`Posted debate for S${params.seasonNum}:E${params.episodeNum}! 💬`, { icon: 'check' });
+      showToast(`Posted debate for S${newDisc.seasonNum}:E${newDisc.episodeNum}! 💬`, { icon: 'check' });
       return true;
     },
     [user?.id, activeUserName, activeUserAvatar, showToast]
@@ -640,36 +696,32 @@ export function CommunityProvider({ children }: { children: React.ReactNode }) {
   // Like discussion
   const likeDiscussion = useCallback(
     async (discId: string) => {
-      let delta = 1;
-      let nextCount = 1;
+      if (pendingLikeIdsRef.current.has(discId)) return;
+      pendingLikeIdsRef.current.add(discId);
+      try {
+        const currentlyLiked = stateRef.current.likedIds.includes(discId);
+        const delta: 1 | -1 = currentlyLiked ? -1 : 1;
 
-      setState((prev) => {
-        const currentlyLiked = prev.likedIds.includes(discId);
-        delta = currentlyLiked ? -1 : 1;
-        const nextLikedIds = currentlyLiked
-          ? prev.likedIds.filter((id) => id !== discId)
-          : [...prev.likedIds, discId];
-
-        const nextDiscs = prev.discussions.map((d) => {
-          if (d.id === discId) {
-            nextCount = Math.max(0, d.likes + delta);
-            return {
-              ...d,
-              likes: nextCount,
-              isLikedByMe: !currentlyLiked,
-            };
-          }
-          return d;
+        setState((prev) => {
+          const alreadyLiked = prev.likedIds.includes(discId);
+          if (alreadyLiked !== currentlyLiked) return prev;
+          return {
+            ...prev,
+            likedIds: currentlyLiked
+              ? prev.likedIds.filter((id) => id !== discId)
+              : [...prev.likedIds, discId],
+            discussions: prev.discussions.map((d) =>
+              d.id === discId
+                ? { ...d, likes: Math.max(0, d.likes + delta), isLikedByMe: !currentlyLiked }
+                : d
+            ),
+          };
         });
 
-        return {
-          ...prev,
-          likedIds: nextLikedIds,
-          discussions: nextDiscs,
-        };
-      });
-
-      await adjustLikesInSupabase('episode_discussions', discId, delta, nextCount);
+        await adjustLikesInSupabase('episode_discussions', discId, delta);
+      } finally {
+        pendingLikeIdsRef.current.delete(discId);
+      }
     },
     []
   );
@@ -677,14 +729,16 @@ export function CommunityProvider({ children }: { children: React.ReactNode }) {
   // Delete discussion
   const deleteDiscussion = useCallback(
     async (discId: string) => {
+      const prevDiscs = stateRef.current.discussions;
       setState((prev) => ({
         ...prev,
         discussions: prev.discussions.filter((d) => d.id !== discId),
       }));
 
-      if (user?.id) {
+      if (isRealCloudUser(user?.id)) {
         const { error } = await supabase.from('episode_discussions').delete().match({ id: discId, user_id: user.id });
         if (error) {
+          setState((prev) => ({ ...prev, discussions: prevDiscs }));
           showToast('Failed to delete debate: ' + error.message, { icon: 'info' });
           return;
         }
