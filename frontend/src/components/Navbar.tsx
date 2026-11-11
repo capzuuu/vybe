@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
-import { Search, Bell, X, ChevronDown, Check, Flame, Edit3, User, HelpCircle, LogOut, Tv, Film, Settings, Users, Heart, Menu, House } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { Search, Bell, X, ChevronDown, Check, Flame, Edit3, User, HelpCircle, LogOut, Tv, Film, Settings, Users, Heart, Menu, House, Download } from 'lucide-react';
 import { useProfiles } from '../contexts/ProfileContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useCatalog } from '../contexts/CatalogContext';
+import { useToast } from '../contexts/ToastContext';
 import { useScrolled, useOnClickOutside } from '../hooks';
 import { ProfileAvatar } from './ui/ProfileAvatar';
 import { Logo } from './ui/TitleArt';
@@ -13,9 +15,11 @@ import { usePlayTitle } from '../hooks';
 import './navbar.css';
 
 export function Navbar() {
+  const isNativeApp = Capacitor.isNativePlatform();
   const { profiles, activeProfile, selectProfile, signOut } = useProfiles();
   const { isAuthenticated, signOut: authSignOut } = useAuth();
   const { titles } = useCatalog();
+  const { showToast } = useToast();
   const isScrolled = useScrolled(20);
   const location = useLocation();
   const navigate = useNavigate();
@@ -343,6 +347,20 @@ export function Navbar() {
                         <HelpCircle size={18} />
                         <span>Help Center</span>
                       </Link>
+                      {!isNativeApp && (
+                        <a
+                          href="/Vybe.apk"
+                          download="Vybe.apk"
+                          className="profile-dropdown__item"
+                          onClick={() => {
+                            showToast('Downloading Vybe Android app (Vybe.apk)…', { icon: 'check' });
+                            window.setTimeout(() => setProfileOpen(false), 80);
+                          }}
+                        >
+                          <Download size={18} aria-hidden="true" />
+                          <span>Download APK</span>
+                        </a>
+                      )}
                     </div>
 
                     <div className="profile-dropdown__divider" />
