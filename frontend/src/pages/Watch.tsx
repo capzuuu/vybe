@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { Capacitor, SystemBars } from '@capacitor/core';
+import { ScreenOrientation } from '@capacitor/screen-orientation';
 import {
   ArrowLeft,
   Maximize,
@@ -36,6 +38,9 @@ export function Watch() {
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const controlsTimeoutRef = useRef<number>();
+  const isFullscreenRef = useRef(false);
+  const saveProgressRef = useRef(saveProgress);
+  saveProgressRef.current = saveProgress;
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showControls, setShowControls] = useState(true);
@@ -150,51 +155,149 @@ export function Watch() {
     };
   }, [wakeControls]);
 
-  // Sync fullscreen state with document fullscreenchange
+  const enterNativeFullscreen = useCallback(async () => {
+    isFullscreenRef.current = true;
+    setIsFullscreen(true);
+    try {
+      const current = await ScreenOrientation.orientation();
+      const target =
+        current.type === 'landscape-secondary' ? 'landscape-secondary' : 'landscape';
+      await ScreenOrientation.lock({ orientation: target });
+    } catch {
+      await ScreenOrientation.lock({ orientation: 'landscape' }).catch(() => {});
+    }
+    await SystemBars.hide().catch(() => {});
+  }, []);
+
+  const exitNativeFullscreen = useCallback(async () => {
+    isFullscreenRef.current = false;
+    setIsFullscreen(false);
+    await ScreenOrientation.unlock().catch(() => {});
+    await SystemBars.show().catch(() => {});
+  }, []);
+
+  // Sync fullscreen state with document fullscreenchange (web) or hardware Back exit (native)
   useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      const handleExitFullscreen = () => {
+        if (isFullscreenRef.current) {
+          void exitNativeFullscreen();
+        }
+      };
+      window.addEventListener('vybe:exit-fullscreen', handleExitFullscreen);
+      return () => {
+        window.removeEventListener('vybe:exit-fullscreen', handleExitFullscreen);
+      };
+    }
+
     const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      const active = !!document.fullscreenElement;
+      isFullscreenRef.current = active;
+      setIsFullscreen(active);
+      if (!active) {
+        try {
+          if ('orientation' in screen && 'unlock' in (screen.orientation as any)) {
+            (screen.orientation as any).unlock();
+          }
+        } catch { }
+      }
     };
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
+  }, [exitNativeFullscreen]);
+
+  // Restore orientation lock & system bars whenever leaving the Watch page
+  useEffect(() => {
+    return () => {
+      if (Capacitor.isNativePlatform()) {
+        isFullscreenRef.current = false;
+        ScreenOrientation.unlock().catch(() => {});
+        SystemBars.show().catch(() => {});
+      }
+    };
   }, []);
 
-  // Track and save progress for continue watching with periodic updates
+  // Close episodes menu when Escape key / Android back dismiss event fires
+  useEffect(() => {
+    if (!episodesMenuOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setEpisodesMenuOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [episodesMenuOpen]);
+
+  // Track and save progress with lower timer frequency (30s) + clean unmount/background flush
   useEffect(() => {
     if (!title) return;
     const existing = getProgress(title.id);
     let currentPos = existing?.position && existing.position > 60 ? existing.position : 300;
-    const dur = (title.runtime || 120) * 60;
+    const dur = Math.max(60, (title.runtime || 120) * 60);
+    const episodeId = activeEpisode?.id || existing?.episodeId;
+    let lastTickAt = Date.now();
 
-    // Initial save
-    saveProgress({
-      titleId: title.id,
-      episodeId: activeEpisode?.id || existing?.episodeId,
-      position: currentPos,
-      duration: dur,
-    });
-
-    // Advance progress periodically while watch page is active
-    const timer = window.setInterval(() => {
-      currentPos += 15;
-      if (currentPos > dur) currentPos = dur;
-      saveProgress({
+    const flush = (advanceElapsed: boolean) => {
+      if (advanceElapsed) {
+        const elapsedSec = Math.max(0, Math.round((Date.now() - lastTickAt) / 1000));
+        lastTickAt = Date.now();
+        currentPos = Math.min(dur, currentPos + elapsedSec);
+      }
+      saveProgressRef.current({
         titleId: title.id,
-        episodeId: activeEpisode?.id || existing?.episodeId,
+        episodeId,
         position: currentPos,
         duration: dur,
       });
-    }, 15000);
+    };
+
+    // Initial save
+    flush(false);
+
+    // Advance progress every 30s while watch page is visible/active
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'hidden') return;
+      lastTickAt = Date.now();
+      currentPos = Math.min(dur, currentPos + 30);
+      flush(false);
+    }, 30000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        flush(true);
+      } else {
+        lastTickAt = Date.now();
+      }
+    };
+    const handlePageHide = () => flush(true);
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', handlePageHide);
 
     return () => {
       window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', handlePageHide);
+      flush(true);
     };
   }, [title?.id, activeEpisode?.id]);
 
-  // Fullscreen toggle with landscape orientation lock if supported
+  // Fullscreen toggle with native landscape orientation lock on Capacitor
   const toggleFullscreen = () => {
+    if (Capacitor.isNativePlatform()) {
+      if (isFullscreenRef.current) {
+        void exitNativeFullscreen();
+      } else {
+        void enterNativeFullscreen();
+      }
+      return;
+    }
+
     if (!containerRef.current) return;
     if (!document.fullscreenElement) {
       containerRef.current.requestFullscreen().catch(() => { });
@@ -203,6 +306,7 @@ export function Watch() {
           (screen.orientation as any).lock('landscape').catch(() => { });
         }
       } catch { }
+      isFullscreenRef.current = true;
       setIsFullscreen(true);
     } else {
       document.exitFullscreen().catch(() => { });
@@ -211,6 +315,7 @@ export function Watch() {
           (screen.orientation as any).unlock();
         }
       } catch { }
+      isFullscreenRef.current = false;
       setIsFullscreen(false);
     }
   };
@@ -283,6 +388,7 @@ export function Watch() {
   return (
     <div
       ref={containerRef}
+      data-fullscreen={isFullscreen ? 'true' : undefined}
       className={`watch-container ${!showControls ? 'controls-hidden' : ''}`}
       onMouseMove={wakeControls}
       onTouchStart={wakeControls}
@@ -297,7 +403,7 @@ export function Watch() {
           title={`${title.name} Player`}
           allowFullScreen
           referrerPolicy="origin"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
         />
       </div>
 
@@ -369,7 +475,7 @@ export function Watch() {
                     className="watch-episodes-backdrop"
                     onClick={() => setEpisodesMenuOpen(false)}
                   />
-                  <div className="watch-menu watch-episodes-menu">
+                  <div className="watch-menu watch-episodes-menu" role="dialog" aria-label="Episodes">
                     <div className="watch-episodes-header">
                       <div className="watch-episodes-handle" />
                       <div className="watch-episodes-title-row">

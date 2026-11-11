@@ -17,6 +17,7 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
+    esbuild: isProd ? { drop: ['debugger'] } : undefined,
     build: {
       target: 'esnext',
       cssCodeSplit: true,
@@ -29,6 +30,13 @@ export default defineConfig(({ mode }) => {
             'vendor-react': ['react', 'react-dom', 'react-router-dom'],
             'vendor-icons': ['lucide-react'],
             'vendor-supabase': ['@supabase/supabase-js'],
+            'vendor-capacitor': [
+              '@capacitor/core',
+              '@capacitor/app',
+              '@capacitor/browser',
+              '@capacitor/screen-orientation',
+              '@capacitor/status-bar',
+            ],
           },
         },
       },

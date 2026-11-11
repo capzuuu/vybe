@@ -21,36 +21,46 @@ async def lifespan(app: FastAPI):
     await close_async_client()
 
 
+docs_enabled = settings.ENABLE_DOCS
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version="2.0.0",
     description="High-performance, secure streaming metadata backend for Vybe",
-    openapi_url=f"{settings.API_V1_STR}/openapi.json",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    openapi_url=f"{settings.API_V1_STR}/openapi.json" if docs_enabled else None,
+    docs_url="/docs" if docs_enabled else None,
+    redoc_url="/redoc" if docs_enabled else None,
     lifespan=lifespan,
 )
 
 # ── 1. Performance Compression Middleware ────────────────────────────
-# Automatically compresses JSON payloads > 500 bytes (70-85% size reduction)
-app.add_middleware(GZipMiddleware, minimum_size=500)
+# Compresses JSON payloads > 500 bytes (70-85% size reduction)
+app.add_middleware(GZipMiddleware, minimum_size=500, compresslevel=5)
 
-# ── 2. Defense-in-depth Security Headers & Latency Timing ─────────────
+# ── 2. Defense-in-depth Security Headers & Latency Timing (pure ASGI) ─
 app.add_middleware(SecurityHeadersMiddleware)
 
-# ── 3. Sliding-window Rate Limiter (180 requests/min/IP) ─────────────
-app.add_middleware(RateLimitMiddleware, max_requests=180, window_seconds=60)
+# ── 3. Sliding-window Bounded Rate Limiter (pure ASGI) ───────────────
+app.add_middleware(
+    RateLimitMiddleware,
+    max_requests=settings.RATE_LIMIT_MAX_REQUESTS,
+    window_seconds=settings.RATE_LIMIT_WINDOW_SECONDS,
+    trust_proxy_headers=settings.TRUST_PROXY_HEADERS,
+)
 
-# ── 4. CORS Configuration ─────────────────────────────────────────────
+# ── 4. Strictly Scoped CORS Configuration ────────────────────────────
+# Never allow wildcard origins with allow_credentials=True.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
-    allow_origin_regex=r"https?://.*",
+    allow_origin_regex=settings.CORS_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "X-Requested-With"],
     expose_headers=["X-Response-Time", "X-RateLimit-Limit", "X-RateLimit-Remaining"],
+    max_age=600,
 )
+
 
 # ── 5. System Health & Diagnostics ───────────────────────────────────
 @app.get("/health", tags=["system"])
@@ -82,6 +92,5 @@ app.include_router(titles.router, prefix=settings.API_V1_STR)
 def root():
     return {
         "message": f"Welcome to {settings.PROJECT_NAME} API v2.0",
-        "docs": "/docs",
         "api_v1": settings.API_V1_STR,
     }

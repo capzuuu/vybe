@@ -1,9 +1,8 @@
 /**
- * Vybe Shield — Intelligent Ad & Popup Blocker for embedded streaming.
- * Neutralizes popup ads, popunders, clickjacking overlays, and redirect hijacking.
+ * Vybe Shield — Lightweight Ad & Popup Blocker for embedded streaming.
+ * Neutralizes popup ads, popunders, and malicious postMessage hooks without layout thrashing.
  */
 
-// Known ad and tracking network patterns
 const AD_DOMAINS = [
   'popads',
   'propellerads',
@@ -26,6 +25,13 @@ const AD_DOMAINS = [
   'vsembed.ru/assets/sbx',
 ];
 
+const ALLOWED_POPUP_HOSTS = [
+  'youtube.com',
+  'youtu.be',
+  'themoviedb.org',
+  'github.com',
+];
+
 interface AdBlockStats {
   blockedPopups: number;
   blockedScripts: number;
@@ -40,15 +46,41 @@ const stats: AdBlockStats = {
 
 let initialized = false;
 
+function isAllowedPopupUrl(url?: string | URL): boolean {
+  if (!url) return false;
+  const raw = String(url).trim();
+  if (!raw) return false;
+  if (raw.startsWith('/') && !raw.startsWith('//')) return true;
+
+  try {
+    const parsed = new URL(raw, window.location.origin);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+      return false;
+    }
+    if (parsed.origin === window.location.origin) {
+      return true;
+    }
+    const host = parsed.hostname.toLowerCase();
+    return ALLOWED_POPUP_HOSTS.some((allowed) => host === allowed || host.endsWith(`.${allowed}`));
+  } catch {
+    return false;
+  }
+}
+
+function isAdSource(src: string): boolean {
+  const lower = src.toLowerCase();
+  return AD_DOMAINS.some((domain) => lower.includes(domain));
+}
+
 /**
- * Initializes global anti-popup and ad-blocking defenses.
+ * Initializes lightweight global anti-popup and ad-blocking defenses.
  * Call once at app startup in main.tsx.
  */
 export function initAdBlocker(): void {
   if (typeof window === 'undefined' || initialized) return;
   initialized = true;
 
-  // ── 1. Intercept window.open (Neutralize Popup Ads) ───────────────
+  // ── 1. Intercept window.open with strict hostname validation ─────
   const originalWindowOpen = window.open;
 
   window.open = function (
@@ -56,27 +88,15 @@ export function initAdBlocker(): void {
     target?: string,
     features?: string,
   ): Window | null {
-    const targetUrl = String(url || '').toLowerCase();
-
-    // Whitelist legitimate app destinations: YouTube trailers, TMDB, internal routes
-    const isWhitelisted =
-      targetUrl === '' ||
-      targetUrl.startsWith('/') ||
-      targetUrl.startsWith(window.location.origin) ||
-      targetUrl.includes('youtube.com') ||
-      targetUrl.includes('youtu.be') ||
-      targetUrl.includes('themoviedb.org');
-
-    if (!isWhitelisted) {
+    if (!isAllowedPopupUrl(url)) {
       stats.blockedPopups++;
-      console.warn(`[Vybe Shield 🛡️] Blocked popup ad #${stats.blockedPopups}:`, url);
       return null;
     }
 
     return originalWindowOpen.call(window, url, target, features);
   };
 
-  // ── 2. Intercept window.alert/confirm dialogs from ad scripts ─────
+  // ── 2. Intercept deceptive scam alert dialogs ────────────────────
   const originalAlert = window.alert;
   window.alert = function (message?: any) {
     const text = String(message || '').toLowerCase();
@@ -84,71 +104,31 @@ export function initAdBlocker(): void {
       text.includes('virus') ||
       text.includes('winner') ||
       text.includes('vpn') ||
-      text.includes('update') ||
       text.includes('cleaner')
     ) {
-      console.warn('[Vybe Shield 🛡️] Blocked scam alert modal:', message);
+      stats.blockedRedirects++;
       return;
     }
     return originalAlert.call(window, message);
   };
 
-  // ── 3. Prevent Focus Stealing / Popunders ──────────────────────────
-  window.addEventListener(
-    'blur',
-    () => {
-      // If window blurs while active on the watch screen, immediately refocus
-      if (window.location.pathname.startsWith('/watch')) {
-        setTimeout(() => {
-          window.focus();
-        }, 50);
-      }
-    },
-    { capture: true },
-  );
-
-  // ── 4. DOM MutationObserver: Defuse dynamically injected ad tags ──
+  // ── 3. Zero-reflow MutationObserver for rogue injected script/iframe tags ─
+  // Avoids calling getComputedStyle() on DOM nodes so React carousel/modal renders never stall.
   try {
     const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
+      for (const mutation of mutations) {
         mutation.addedNodes.forEach((node) => {
-          if (node instanceof HTMLElement) {
-            // Check script tags
-            if (node.tagName === 'SCRIPT') {
-              const src = (node as HTMLScriptElement).src?.toLowerCase() || '';
-              if (AD_DOMAINS.some((domain) => src.includes(domain))) {
-                stats.blockedScripts++;
-                node.remove();
-                console.warn(`[Vybe Shield 🛡️] Blocked ad script #${stats.blockedScripts}:`, src);
-              }
-            }
+          if (!(node instanceof HTMLElement)) return;
 
-            // Check rogue hidden clickjack overlays
-            if (
-              node.tagName === 'DIV' ||
-              node.tagName === 'A' ||
-              node.tagName === 'IFRAME'
-            ) {
-              const style = window.getComputedStyle(node);
-              const isFixedFull =
-                style.position === 'fixed' &&
-                (style.zIndex === '2147483647' || parseInt(style.zIndex, 10) > 10000) &&
-                (style.width === '100%' || style.width === `${window.innerWidth}px`);
-
-              const isSuspiciousAd =
-                node.id?.toLowerCase().includes('ad') ||
-                node.className?.toString().toLowerCase().includes('popunder') ||
-                node.className?.toString().toLowerCase().includes('banner-overlay');
-
-              if (isFixedFull && isSuspiciousAd) {
-                stats.blockedScripts++;
-                node.remove();
-                console.warn('[Vybe Shield 🛡️] Removed rogue clickjack overlay');
-              }
+          if (node.tagName === 'SCRIPT' || node.tagName === 'IFRAME') {
+            const src = (node as HTMLScriptElement | HTMLIFrameElement).src || '';
+            if (src && isAdSource(src)) {
+              stats.blockedScripts++;
+              node.remove();
             }
           }
         });
-      });
+      }
     });
 
     observer.observe(document.documentElement, {
@@ -159,12 +139,13 @@ export function initAdBlocker(): void {
     // MutationObserver fallback
   }
 
-  // ── 5. Block Malicious postMessage Handshakes ──────────────────────
+  // ── 4. Block malicious postMessage ad triggers ───────────────────
   window.addEventListener(
     'message',
     (event) => {
       try {
-        const data = typeof event.data === 'string' ? event.data.toLowerCase() : '';
+        if (typeof event.data !== 'string') return;
+        const data = event.data.toLowerCase();
         if (
           data.includes('ad_click') ||
           data.includes('popunder') ||
@@ -172,14 +153,11 @@ export function initAdBlocker(): void {
           data.includes('show_ad')
         ) {
           event.stopImmediatePropagation();
-          console.warn('[Vybe Shield 🛡️] Blocked malicious postMessage event');
         }
       } catch {}
     },
     { capture: true },
   );
-
-  console.info('[Vybe Shield 🛡️] Ad & Popup Blocker initialized and active.');
 }
 
 /**

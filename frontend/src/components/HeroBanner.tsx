@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Info, Volume2, VolumeX, RotateCcw } from 'lucide-react';
+import { Play, Info, Volume2, VolumeX } from 'lucide-react';
 import type { Title } from '../types';
 import { TitleArt } from './ui/TitleArt';
 import { SmartImage } from './ui/SmartImage';
@@ -15,6 +15,7 @@ interface HeroBannerProps {
 export function HeroBanner({ titles }: HeroBannerProps) {
   const [index, setIndex] = useState(0);
   const [isPlayingTrailer, setIsPlayingTrailer] = useState(false);
+  const [isVideoReady, setIsVideoReady] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
   const playTitle = usePlayTitle();
@@ -22,35 +23,46 @@ export function HeroBanner({ titles }: HeroBannerProps) {
 
   const title = titles[index] || titles[0];
 
-  // Rotate title every 15 seconds if trailer is not active
+  // Rotate title every 16 seconds
   useEffect(() => {
     if (!titles.length) return;
     const interval = setInterval(() => {
+      setIsVideoReady(false);
       setIsPlayingTrailer(false);
       setIndex((prev) => (prev + 1) % titles.length);
     }, 16000);
     return () => clearInterval(interval);
   }, [titles.length]);
 
-  // Start video trailer preview after 2.5s delay
+  // Start video trailer preview after 2.8s delay
   useEffect(() => {
+    setIsVideoReady(false);
     setIsPlayingTrailer(false);
+    if (!title?.videoUrl) return;
     const timer = setTimeout(() => {
       setIsPlayingTrailer(true);
     }, 2800);
     return () => clearTimeout(timer);
-  }, [index]);
+  }, [index, title?.id, title?.videoUrl]);
 
-  // Handle trailer video autoplay
+  // Handle trailer video autoplay and bail out cleanly if playback fails or stalls
   useEffect(() => {
-    if (isPlayingTrailer && videoRef.current && title) {
-      videoRef.current.currentTime = title.trailerStart || 0;
-      videoRef.current.play().catch(() => {
-        // Autoplay policy or error - keep backdrop
-        setIsPlayingTrailer(false);
-      });
-    }
-  }, [isPlayingTrailer, title]);
+    if (!isPlayingTrailer || !videoRef.current || !title) return;
+    videoRef.current.currentTime = title.trailerStart || 0;
+    videoRef.current.play().catch(() => {
+      setIsVideoReady(false);
+      setIsPlayingTrailer(false);
+    });
+  }, [isPlayingTrailer, title?.id]);
+
+  useEffect(() => {
+    if (!isPlayingTrailer || isVideoReady) return;
+    const stallTimer = window.setTimeout(() => {
+      setIsVideoReady(false);
+      setIsPlayingTrailer(false);
+    }, 6000);
+    return () => window.clearTimeout(stallTimer);
+  }, [isPlayingTrailer, isVideoReady]);
 
   if (!title) return null;
 
@@ -61,22 +73,32 @@ export function HeroBanner({ titles }: HeroBannerProps) {
         <SmartImage
           src={title.backdrop}
           alt={title.name}
-          className={`hero__backdrop ${isPlayingTrailer ? 'hero__backdrop--hidden' : ''}`}
+          className={`hero__backdrop ${isVideoReady ? 'hero__backdrop--hidden' : ''}`}
           eager
           fallbackLabel={title.name}
           accent={title.accent}
         />
 
-        {/* Video Trailer Preview */}
-        {isPlayingTrailer && (
+        {/* Video Trailer Preview (kept invisible until first decoded frame plays) */}
+        {isPlayingTrailer && title.videoUrl && (
           <video
             ref={videoRef}
             src={title.videoUrl}
-            className="hero__video"
+            poster={title.backdrop}
+            preload="auto"
+            className={`hero__video ${isVideoReady ? 'hero__video--ready' : ''}`}
             autoPlay
             playsInline
             muted={isMuted}
-            onEnded={() => setIsPlayingTrailer(false)}
+            onPlaying={() => setIsVideoReady(true)}
+            onError={() => {
+              setIsVideoReady(false);
+              setIsPlayingTrailer(false);
+            }}
+            onEnded={() => {
+              setIsVideoReady(false);
+              setIsPlayingTrailer(false);
+            }}
           />
         )}
 
@@ -123,7 +145,7 @@ export function HeroBanner({ titles }: HeroBannerProps) {
 
       {/* Right controls: Mute audio toggle + Maturity tag */}
       <div className="hero__side-controls">
-        {isPlayingTrailer && (
+        {isVideoReady && (
           <button
             type="button"
             className="circle-btn hero__mute-btn"

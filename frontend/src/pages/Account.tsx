@@ -4,6 +4,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useProfiles } from '../contexts/ProfileContext';
 import { useToast } from '../contexts/ToastContext';
 import { ProfileAvatar } from '../components/ui/ProfileAvatar';
+import { supabase } from '../lib/supabase';
+import { formatAuthError } from '../utils/authErrors';
 import {
   CreditCard,
   ShieldCheck,
@@ -19,7 +21,7 @@ import {
 import './account.css';
 
 export function Account() {
-  const { user, signOut: authSignOut } = useAuth();
+  const { user, isConfigured, signOut: authSignOut } = useAuth();
   const { profiles, activeProfile, signOut: profileSignOut } = useProfiles();
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -32,12 +34,16 @@ export function Account() {
     return localStorage.getItem('vybe_autoplay_previews') !== 'false';
   });
 
-  // Password change modal state
+  // Password change modal & remote security state
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [updatingPassword, setUpdatingPassword] = useState(false);
+  const [revokingSessions, setRevokingSessions] = useState(false);
+  const [resendingVerify, setResendingVerify] = useState(false);
 
+  const isCloudAccount = Boolean(isConfigured && user?.id && !user.id.startsWith('demo-'));
+  const isEmailVerified = Boolean((user as any)?.email_confirmed_at);
   const userEmail = user?.email || 'viewer@vybe.stream';
   const memberSinceYear = user?.created_at
     ? new Date(user.created_at).getFullYear()
@@ -58,14 +64,61 @@ export function Account() {
     showToast(`Autoplay previews ${nextVal ? 'enabled' : 'disabled'}.`, { icon: 'check' });
   };
 
-  const handleSignOutAllDevices = () => {
-    showToast('Signed out of all other devices successfully.', { icon: 'check' });
+  const handleEmailVerificationAction = async () => {
+    if (!isCloudAccount || !user?.email) {
+      showToast('Sign in with a cloud account to manage email verification.', { icon: 'info' });
+      return;
+    }
+    if (isEmailVerified) {
+      showToast('Your email address is verified.', { icon: 'check' });
+      return;
+    }
+    setResendingVerify(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: user.email,
+      });
+      if (error) {
+        showToast(formatAuthError(error, 'signin'), { icon: 'info' });
+      } else {
+        showToast('Verification email sent. Please check your inbox.', { icon: 'check' });
+      }
+    } catch (err) {
+      showToast(formatAuthError(err, 'signin'), { icon: 'info' });
+    } finally {
+      setResendingVerify(false);
+    }
   };
 
-  const handlePasswordSubmit = (e: React.FormEvent) => {
+  const handleSignOutAllDevices = async () => {
+    if (!isCloudAccount) {
+      showToast('Sign in with a cloud account to manage remote device sessions.', { icon: 'info' });
+      return;
+    }
+    setRevokingSessions(true);
+    try {
+      const { error } = await supabase.auth.signOut({ scope: 'others' });
+      if (error) {
+        showToast(formatAuthError(error, 'signin'), { icon: 'info' });
+      } else {
+        showToast('Signed out of all other devices successfully.', { icon: 'check' });
+      }
+    } catch (err) {
+      showToast(formatAuthError(err, 'signin'), { icon: 'info' });
+    } finally {
+      setRevokingSessions(false);
+    }
+  };
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPassword.length < 6) {
-      showToast('Password must be at least 6 characters.', { icon: 'info' });
+    if (!isCloudAccount) {
+      showToast('Demo accounts cannot update cloud passwords.', { icon: 'info' });
+      return;
+    }
+    if (newPassword.length < 8) {
+      showToast('Password must be at least 8 characters.', { icon: 'info' });
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -74,13 +127,21 @@ export function Account() {
     }
 
     setUpdatingPassword(true);
-    setTimeout(() => {
-      setUpdatingPassword(false);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) {
+        showToast(formatAuthError(error, 'signin'), { icon: 'info' });
+        return;
+      }
       setShowPasswordModal(false);
       setNewPassword('');
       setConfirmPassword('');
       showToast('Password updated successfully.', { icon: 'check' });
-    }, 600);
+    } catch (err) {
+      showToast(formatAuthError(err, 'signin'), { icon: 'info' });
+    } finally {
+      setUpdatingPassword(false);
+    }
   };
 
   const handleSignOut = async () => {
@@ -115,9 +176,10 @@ export function Account() {
             <button
               type="button"
               className="account-action-link"
-              onClick={() => showToast('Email address is verified.', { icon: 'check' })}
+              disabled={resendingVerify}
+              onClick={handleEmailVerificationAction}
             >
-              Verify email
+              {isEmailVerified ? 'Email verified' : resendingVerify ? 'Sending...' : 'Verify email'}
             </button>
           </div>
 
@@ -199,9 +261,10 @@ export function Account() {
             <button
               type="button"
               className="account-action-link"
+              disabled={revokingSessions}
               onClick={handleSignOutAllDevices}
             >
-              Sign out of all devices
+              {revokingSessions ? 'Signing out...' : 'Sign out of all devices'}
             </button>
           </div>
         </div>
@@ -305,10 +368,11 @@ export function Account() {
               <input
                 type="password"
                 className="account-modal-input"
-                placeholder="New Password (min 6 characters)"
+                placeholder="New Password (min 8 characters)"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 autoComplete="new-password"
+                minLength={8}
                 required
               />
               <input

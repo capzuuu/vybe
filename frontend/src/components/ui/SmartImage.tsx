@@ -18,28 +18,52 @@ interface SmartImageProps {
  * gradient fallback when the network/image is unavailable.
  */
 function SmartImageBase({ src, alt, className = '', eager, fallbackLabel, accent = '#3a1c1c' }: SmartImageProps) {
-  const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
+  const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>(src ? 'loading' : 'error');
+  const [attempt, setAttempt] = useState(0);
   const imgRef = useRef<HTMLImageElement>(null);
+  const retryTimerRef = useRef<number>();
 
   useEffect(() => {
-    setStatus('loading');
-    const img = imgRef.current;
-    if (img?.complete && img.naturalWidth) setStatus('loaded');
+    window.clearTimeout(retryTimerRef.current);
+    setAttempt(0);
+    setStatus(src ? 'loading' : 'error');
   }, [src]);
+
+  useEffect(() => {
+    const img = imgRef.current;
+    if (!img) return;
+    img.setAttribute('fetchpriority', eager ? 'high' : 'auto');
+    if (status === 'loading' && img.complete && img.naturalWidth > 0) {
+      setStatus('loaded');
+    }
+    return () => {
+      window.clearTimeout(retryTimerRef.current);
+    };
+  }, [src, status, attempt, eager]);
+
+  const handleError = () => {
+    if (attempt < 1 && src) {
+      retryTimerRef.current = window.setTimeout(() => {
+        setAttempt((prev) => prev + 1);
+      }, 900);
+      return;
+    }
+    setStatus('error');
+  };
 
   return (
     <div className={`smart-img smart-img--${status} ${className}`}>
-      {status !== 'error' ? (
+      {status !== 'error' && src ? (
         <img
+          key={`${src}-${attempt}`}
           ref={imgRef}
           src={src}
           alt={alt}
           loading={eager ? 'eager' : 'lazy'}
           decoding="async"
           draggable={false}
-          {...(eager ? { fetchpriority: 'high' } : {})}
           onLoad={() => setStatus('loaded')}
-          onError={() => setStatus('error')}
+          onError={handleError}
         />
       ) : (
         <div

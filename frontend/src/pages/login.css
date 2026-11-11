@@ -32,7 +32,7 @@
 .netflix-auth__header {
   position: relative;
   z-index: 10;
-  padding: 24px var(--gutter);
+  padding: max(24px, env(safe-area-inset-top, 0px), var(--safe-area-inset-top, 0px)) var(--gutter) 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;

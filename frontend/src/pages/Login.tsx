@@ -79,12 +79,12 @@ export function Login() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Determine return destination (preserves movie/episode watch URL)
+  // Determine return destination (preserves internal movie/episode watch URL while preventing open redirects)
   const getDestination = () => {
     const fromPath = (location.state as any)?.from?.pathname;
     const fromSearch = (location.state as any)?.from?.search || '';
-    if (fromPath) {
-      return `${fromPath}${fromSearch}`;
+    if (typeof fromPath === 'string' && fromPath.startsWith('/') && !fromPath.startsWith('//')) {
+      return `${fromPath}${typeof fromSearch === 'string' ? fromSearch : ''}`;
     }
     return '/';
   };
@@ -95,6 +95,24 @@ export function Login() {
       navigate(getDestination(), { replace: true });
     }
   }, [isAuthenticated, navigate, location]);
+
+  // Listen for Capacitor Chrome Custom Tab close / OAuth callback errors on native APK
+  React.useEffect(() => {
+    const onBrowserClosed = () => setSubmitting(false);
+    const onOAuthError = (e: Event) => {
+      const detail = (e as CustomEvent<string>).detail;
+      setSubmitting(false);
+      if (detail) {
+        setErrorMsg(formatAuthError(detail, 'signin'));
+      }
+    };
+    window.addEventListener('vybe:oauth-browser-closed', onBrowserClosed);
+    window.addEventListener('vybe:oauth-error', onOAuthError);
+    return () => {
+      window.removeEventListener('vybe:oauth-browser-closed', onBrowserClosed);
+      window.removeEventListener('vybe:oauth-error', onOAuthError);
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

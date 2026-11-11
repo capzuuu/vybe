@@ -53,14 +53,14 @@
 @media (max-width: 799px) { :root { --cards: 3; } }
 @media (max-width: 920px) {
   :root {
-    --bottom-nav-h: calc(76px + env(safe-area-inset-bottom, 16px));
+    --bottom-nav-h: calc(76px + max(env(safe-area-inset-bottom, 16px), var(--safe-area-inset-bottom, 0px)));
   }
 }
 @media (max-width: 639px) {
   :root {
     --nav-h: 56px;
     --subnav-h: 52px;
-    --bottom-nav-h: calc(76px + env(safe-area-inset-bottom, 16px));
+    --bottom-nav-h: calc(76px + max(env(safe-area-inset-bottom, 16px), var(--safe-area-inset-bottom, 0px)));
     --posters: 3.25;
   }
 }

@@ -1,13 +1,51 @@
-import os
 import asyncio
-from typing import Any, Dict, List, Optional
+import importlib.util
+import logging
+import re
+from typing import Any, Dict, Optional
 import httpx
 from fastapi import HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from app.core.config import settings
-from app.core.cache import catalog_cache, search_cache, details_cache
+from app.core.cache import catalog_cache
+
+logger = logging.getLogger("vybe.tmdb")
 
 TMDB_BASE_URL = "https://api.themoviedb.org/3"
+_HTTP2_AVAILABLE = importlib.util.find_spec("h2") is not None
+
+# Strict read-only endpoint allowlist to prevent SSRF / path traversal
+_ALLOWED_ENDPOINT_PATTERNS = (
+    re.compile(r"^/trending/(all|movie|tv)/(day|week)$"),
+    re.compile(r"^/movie/(popular|top_rated|now_playing|upcoming)$"),
+    re.compile(r"^/tv/(popular|top_rated|on_the_air|airing_today)$"),
+    re.compile(r"^/discover/(movie|tv)$"),
+    re.compile(r"^/search/(multi|movie|tv)$"),
+    re.compile(r"^/genre/(movie|tv)/list$"),
+    re.compile(r"^/(movie|tv)/[1-9]\d{0,8}$"),
+)
+
+_ALLOWED_QUERY_KEYS = frozenset({
+    "language",
+    "page",
+    "query",
+    "include_adult",
+    "sort_by",
+    "with_genres",
+    "with_original_language",
+    "vote_count.gte",
+    "region",
+    "append_to_response",
+})
+
+_ALLOWED_APPEND_TOKENS = frozenset({
+    "credits",
+    "videos",
+    "similar",
+    "external_ids",
+    "images",
+    "recommendations",
+})
 
 # Shared AsyncClient reference initialized during FastAPI lifespan
 _async_client: Optional[httpx.AsyncClient] = None
@@ -17,8 +55,13 @@ def get_async_client() -> httpx.AsyncClient:
     global _async_client
     if _async_client is None or _async_client.is_closed:
         _async_client = httpx.AsyncClient(
-            timeout=httpx.Timeout(10.0, connect=5.0),
-            limits=httpx.Limits(max_keepalive_connections=50, max_connections=200),
+            http2=_HTTP2_AVAILABLE,
+            timeout=httpx.Timeout(8.0, connect=3.5, read=6.0),
+            limits=httpx.Limits(
+                max_keepalive_connections=50,
+                max_connections=200,
+                keepalive_expiry=30.0,
+            ),
             headers={"User-Agent": "Vybe-Streaming/2.0", "Accept": "application/json"},
         )
     return _async_client
@@ -29,6 +72,60 @@ async def close_async_client() -> None:
     if _async_client and not _async_client.is_closed:
         await _async_client.aclose()
         _async_client = None
+
+
+def validate_tmdb_endpoint(path: str) -> str:
+    raw = (path or "").strip()
+    lower = raw.lower()
+    if (
+        not raw
+        or ".." in raw
+        or "%2e" in lower
+        or "\\" in raw
+        or "://" in raw
+        or "@" in raw
+        or any(ord(ch) < 32 for ch in raw)
+    ):
+        raise HTTPException(status_code=400, detail="Invalid metadata endpoint")
+
+    normalized = "/" + raw.lstrip("/")
+    if not any(pattern.fullmatch(normalized) for pattern in _ALLOWED_ENDPOINT_PATTERNS):
+        raise HTTPException(status_code=404, detail="Unsupported metadata endpoint")
+    return normalized
+
+
+def sanitize_tmdb_params(params: Optional[Dict[str, Any]]) -> Dict[str, str]:
+    sanitized: Dict[str, str] = {"language": "en-US"}
+    if not params:
+        return sanitized
+
+    for key, val in params.items():
+        if key not in _ALLOWED_QUERY_KEYS or val is None:
+            continue
+        text = re.sub(r"[\x00-\x1f\x7f]", "", str(val)).strip()
+        if not text:
+            continue
+
+        if key == "page":
+            if text.isdigit():
+                page_num = max(1, min(500, int(text)))
+                sanitized[key] = str(page_num)
+            continue
+
+        if key == "include_adult":
+            sanitized[key] = "true" if text.lower() == "true" else "false"
+            continue
+
+        if key == "append_to_response":
+            tokens = [t.strip() for t in text.split(",") if t.strip() in _ALLOWED_APPEND_TOKENS]
+            if tokens:
+                sanitized[key] = ",".join(dict.fromkeys(tokens))
+            continue
+
+        if key in ("query", "sort_by", "with_genres", "with_original_language", "vote_count.gte", "region", "language"):
+            sanitized[key] = text[:80]
+
+    return sanitized
 
 
 class TitleOut(BaseModel):
@@ -95,45 +192,43 @@ async def tmdb_request(
     ttl: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
-    Executes an asynchronous, pooled HTTP request to TMDB with intelligent LRU TTL caching.
+    Executes an asynchronous, pooled HTTP request to TMDB with LRU TTL caching,
+    singleflight request coalescing, and sanitized upstream errors.
     """
-    api_key = settings.TMDB_API_KEY
-    query_params: Dict[str, str] = {"api_key": api_key, "language": "en-US"}
-    if params:
-        query_params.update(params)
+    safe_endpoint = validate_tmdb_endpoint(endpoint)
+    safe_params = sanitize_tmdb_params(params)
 
-    # Cache key includes endpoint and sorted parameters
-    cache_key = f"{endpoint}?" + "&".join(f"{k}={v}" for k, v in sorted(query_params.items()) if k != "api_key")
+    # Canonical cache key excluding api_key
+    cache_key = f"{safe_endpoint}?" + "&".join(f"{k}={v}" for k, v in sorted(safe_params.items()))
 
-    cached_data = cache_store.get(cache_key)
-    if cached_data is not None:
-        return cached_data
+    async def _fetch_from_tmdb() -> Dict[str, Any]:
+        query_params = {**safe_params, "api_key": settings.TMDB_API_KEY}
+        client = get_async_client()
+        url = f"{TMDB_BASE_URL}{safe_endpoint}"
 
-    client = get_async_client()
-    url = f"{TMDB_BASE_URL}{endpoint}"
+        for attempt in range(2):
+            try:
+                response = await client.get(url, params=query_params)
+                if response.status_code == 200:
+                    return response.json()
+                if response.status_code == 404:
+                    raise HTTPException(status_code=404, detail="Title not found")
+                if response.status_code == 429:
+                    if attempt == 0:
+                        await asyncio.sleep(0.8)
+                        continue
+                    raise HTTPException(status_code=429, detail="Metadata rate limit reached, please retry shortly")
 
-    # Asynchronous request with 1 automatic retry on transient failure
-    for attempt in range(2):
-        try:
-            response = await client.get(url, params=query_params)
-            if response.status_code == 200:
-                data = response.json()
-                cache_store.set(cache_key, data, ttl=ttl)
-                return data
-            elif response.status_code == 404:
-                raise HTTPException(status_code=404, detail="Title not found on TMDB")
-            elif response.status_code == 429:
+                logger.warning("TMDB upstream returned HTTP %s for %s", response.status_code, safe_endpoint)
+                raise HTTPException(status_code=502, detail="Upstream metadata service unavailable")
+            except httpx.RequestError as exc:
+                logger.warning("TMDB request failed (%s) on attempt %d", type(exc).__name__, attempt + 1)
                 if attempt == 0:
-                    await asyncio.sleep(1.0)
+                    await asyncio.sleep(0.35)
                     continue
-                raise HTTPException(status_code=429, detail="TMDB rate limit reached, please retry momentarily")
-            else:
-                raise HTTPException(status_code=response.status_code, detail=f"TMDB API error: {response.text}")
-        except httpx.RequestError as exc:
-            if attempt == 0:
-                await asyncio.sleep(0.5)
-                continue
-            raise HTTPException(status_code=502, detail=f"TMDB Gateway connection error: {str(exc)}")
+                raise HTTPException(status_code=502, detail="Unable to reach upstream metadata service")
 
-    raise HTTPException(status_code=502, detail="Failed to retrieve data from TMDB")
+        raise HTTPException(status_code=502, detail="Failed to retrieve metadata")
+
+    return await cache_store.get_or_load(cache_key, _fetch_from_tmdb, ttl=ttl)
 

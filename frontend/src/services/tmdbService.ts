@@ -1,4 +1,5 @@
-import type { Episode, Maturity, Season, Title, TitleFont, Trailer } from '../types';
+import { Capacitor } from '@capacitor/core';
+import type { Maturity, Season, Title, TitleFont, Trailer } from '../types';
 import { tmdbImage } from '../utils/tmdb';
 
 // Secure runtime key reconstruction (XOR-masked byte array; no plaintext string or base64 token in source/bundle)
@@ -9,13 +10,48 @@ const getSecureKey = (): string => {
     if (typeof envKey === 'string' && envKey.trim()) {
       return envKey.trim();
     }
-    // Reconstruct key dynamically at runtime via byte XOR so no string or token exists in bundle
     return _XOR_SIG.map((b) => String.fromCharCode(b ^ 42)).join('');
   } catch {
     return '';
   }
 };
+
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
+const RAW_API_BASE = ((import.meta as any).env?.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '');
+const PROXY_TIMEOUT_MS = 4500;
+const DIRECT_TIMEOUT_MS = 9000;
+
+function getProxyUrl(cleanEndpoint: string, paramQuery: string): string | null {
+  const isNative = Capacitor.isNativePlatform();
+  // Inside Android/iOS APK, relative "/api/..." hits the local WebView SPA fallback (index.html),
+  // wasting a failed JSON parse on every request unless an explicit backend URL is configured.
+  if (isNative && !RAW_API_BASE) {
+    return null;
+  }
+  const base = RAW_API_BASE || '';
+  return `${base}/api/v1/titles/proxy/${cleanEndpoint}${paramQuery ? `?${paramQuery}` : ''}`;
+}
+
+async function fetchJsonWithTimeout<T>(url: string, timeoutMs: number): Promise<T | null> {
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = controller ? window.setTimeout(() => controller.abort(), timeoutMs) : null;
+  try {
+    const res = await fetch(url, {
+      signal: controller?.signal,
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) return null;
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.toLowerCase().includes('application/json')) {
+      return null;
+    }
+    return (await res.json()) as T;
+  } catch {
+    return null;
+  } finally {
+    if (timer !== null) window.clearTimeout(timer);
+  }
+}
 
 // Genre ID to Name Mapping
 export const GENRE_MAP: Record<number, string> = {
@@ -73,22 +109,71 @@ export const GENRE_NAME_TO_ID: Record<string, number> = {
 // In-memory + Persistent LocalStorage dual-tier cache with Stale-While-Revalidate (SWR)
 const memoryCache = new Map<string, { data: any; timestamp: number }>();
 const inFlightRequests = new Map<string, Promise<any>>();
+const MAX_MEMORY_CACHE_ENTRIES = 160;
 const FRESH_TTL = 1000 * 60 * 15; // 15 minutes fresh
 const MAX_STALE_TTL = 1000 * 60 * 60 * 24 * 3; // 3 days stale fallback
 const STORAGE_PREFIX = 'vybe_tmdb_';
 
+function setMemoryEntry(key: string, entry: { data: any; timestamp: number }): void {
+  if (memoryCache.has(key)) {
+    memoryCache.delete(key);
+  }
+  memoryCache.set(key, entry);
+  while (memoryCache.size > MAX_MEMORY_CACHE_ENTRIES) {
+    const oldestKey = memoryCache.keys().next().value;
+    if (oldestKey === undefined) break;
+    memoryCache.delete(oldestKey);
+  }
+}
+
+function pruneStaleLocalCache(): void {
+  try {
+    const now = Date.now();
+    const candidates: Array<{ key: string; ts: number }> = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k || !k.startsWith(STORAGE_PREFIX)) continue;
+      try {
+        const parsed = JSON.parse(localStorage.getItem(k) || 'null');
+        if (!parsed || typeof parsed.timestamp !== 'number' || now - parsed.timestamp > MAX_STALE_TTL) {
+          localStorage.removeItem(k);
+        } else {
+          candidates.push({ key: k, ts: parsed.timestamp });
+        }
+      } catch {
+        localStorage.removeItem(k);
+      }
+    }
+    if (candidates.length > 40) {
+      candidates.sort((a, b) => a.ts - b.ts);
+      const removeCount = Math.ceil(candidates.length / 2);
+      for (let i = 0; i < removeCount; i++) {
+        localStorage.removeItem(candidates[i].key);
+      }
+    }
+  } catch {}
+}
+
 function getStoredCache<T>(key: string): { data: T; timestamp: number } | null {
-  // 1. High-speed memory cache (0ms)
+  // 1. High-speed memory cache (0ms, promotes LRU position)
   const mem = memoryCache.get(key);
-  if (mem) return mem;
+  if (mem) {
+    setMemoryEntry(key, mem);
+    return mem;
+  }
 
   // 2. Persistent storage for instant startup across page reloads
   try {
     const raw = localStorage.getItem(`${STORAGE_PREFIX}${key}`);
     if (raw) {
       const parsed = JSON.parse(raw);
-      memoryCache.set(key, parsed);
-      return parsed;
+      if (parsed && typeof parsed.timestamp === 'number' && parsed.data !== undefined) {
+        if (Date.now() - parsed.timestamp <= MAX_STALE_TTL) {
+          setMemoryEntry(key, parsed);
+          return parsed;
+        }
+        localStorage.removeItem(`${STORAGE_PREFIX}${key}`);
+      }
     }
   } catch {}
   return null;
@@ -96,20 +181,46 @@ function getStoredCache<T>(key: string): { data: T; timestamp: number } | null {
 
 function setStoredCache(key: string, data: any): void {
   const entry = { data, timestamp: Date.now() };
-  memoryCache.set(key, entry);
+  setMemoryEntry(key, entry);
   try {
     localStorage.setItem(`${STORAGE_PREFIX}${key}`, JSON.stringify(entry));
   } catch {
-    // If quota exceeded, clean up stale entries
+    pruneStaleLocalCache();
     try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && k.startsWith(STORAGE_PREFIX)) {
-          localStorage.removeItem(k);
-        }
-      }
       localStorage.setItem(`${STORAGE_PREFIX}${key}`, JSON.stringify(entry));
     } catch {}
+  }
+}
+
+async function fetchLiveTMDBPayload<T>(cleanEndpoint: string, params: Record<string, string>, paramQuery: string): Promise<T> {
+  const proxyUrl = getProxyUrl(cleanEndpoint, paramQuery);
+  if (proxyUrl) {
+    const proxyData = await fetchJsonWithTimeout<T>(proxyUrl, PROXY_TIMEOUT_MS);
+    if (proxyData) {
+      return proxyData;
+    }
+  }
+
+  const query = new URLSearchParams({
+    api_key: getSecureKey(),
+    language: 'en-US',
+    ...params,
+  }).toString();
+  const url = `${TMDB_BASE_URL}/${cleanEndpoint}?${query}`;
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = controller ? window.setTimeout(() => controller.abort(), DIRECT_TIMEOUT_MS) : null;
+
+  try {
+    const res = await fetch(url, {
+      signal: controller?.signal,
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) {
+      throw new Error(`TMDB API error (${res.status}): ${res.statusText}`);
+    }
+    return (await res.json()) as T;
+  } finally {
+    if (timer !== null) window.clearTimeout(timer);
   }
 }
 
@@ -127,31 +238,13 @@ async function tmdbFetch<T>(endpoint: string, params: Record<string, string> = {
   // If stale data exists, return stale data immediately and revalidate in background (SWR)
   if (cached && Date.now() - cached.timestamp < MAX_STALE_TTL) {
     if (!inFlightRequests.has(cacheKey)) {
-      const bgPromise = (async () => {
-        try {
-          const proxyUrl = `/api/v1/titles/proxy/${cleanEndpoint}${paramQuery ? `?${paramQuery}` : ''}`;
-          const pRes = await fetch(proxyUrl);
-          if (pRes.ok) {
-            const fresh = await pRes.json();
-            setStoredCache(cacheKey, fresh);
-            return;
-          }
-        } catch {}
-
-        try {
-          const query = new URLSearchParams({
-            api_key: getSecureKey(),
-            language: 'en-US',
-            ...params,
-          }).toString();
-          const fetchUrl = `${TMDB_BASE_URL}/${cleanEndpoint}?${query}`;
-          const res = await fetch(fetchUrl);
-          if (res.ok) {
-            const fresh = await res.json();
-            setStoredCache(cacheKey, fresh);
-          }
-        } catch {}
-      })().finally(() => inFlightRequests.delete(cacheKey));
+      const bgPromise = fetchLiveTMDBPayload<T>(cleanEndpoint, params, paramQuery)
+        .then((fresh) => {
+          setStoredCache(cacheKey, fresh);
+          return fresh;
+        })
+        .catch(() => cached.data)
+        .finally(() => inFlightRequests.delete(cacheKey));
 
       inFlightRequests.set(cacheKey, bgPromise);
     }
@@ -159,45 +252,23 @@ async function tmdbFetch<T>(endpoint: string, params: Record<string, string> = {
   }
 
   // Request deduplication: reuse running request if identical call is in flight
-  if (inFlightRequests.has(cacheKey)) {
-    return inFlightRequests.get(cacheKey) as Promise<T>;
+  const existing = inFlightRequests.get(cacheKey);
+  if (existing) {
+    return existing as Promise<T>;
   }
 
-  const reqPromise = (async () => {
-    // 1. Attempt secure backend proxy first (keeps API key strictly server-side)
-    try {
-      const proxyUrl = `/api/v1/titles/proxy/${cleanEndpoint}${paramQuery ? `?${paramQuery}` : ''}`;
-      const proxyRes = await fetch(proxyUrl);
-      if (proxyRes.ok) {
-        const data = await proxyRes.json();
-        setStoredCache(cacheKey, data);
-        return data as T;
-      }
-    } catch {}
-
-    // 2. Direct TMDB fallback using secure runtime XOR reconstruction (never plain string or inlined env)
-    try {
-      const query = new URLSearchParams({
-        api_key: getSecureKey(),
-        language: 'en-US',
-        ...params,
-      }).toString();
-      const url = `${TMDB_BASE_URL}/${cleanEndpoint}?${query}`;
-      const res = await fetch(url);
-      if (!res.ok) {
-        if (cached) return cached.data;
-        throw new Error(`TMDB API error (${res.status}): ${res.statusText}`);
-      }
-      const data = await res.json();
+  const reqPromise = fetchLiveTMDBPayload<T>(cleanEndpoint, params, paramQuery)
+    .then((data) => {
       setStoredCache(cacheKey, data);
-      return data as T;
-    } catch (err) {
+      return data;
+    })
+    .catch((err) => {
       if (cached) return cached.data;
       throw err;
-    } finally {
+    })
+    .finally(() => {
       inFlightRequests.delete(cacheKey);
-    }
-  })();
+    });
 
   inFlightRequests.set(cacheKey, reqPromise);
   return reqPromise;
