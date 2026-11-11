@@ -1,5 +1,6 @@
 import React, { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ProfileProvider } from './contexts/ProfileContext';
 import { CatalogProvider } from './contexts/CatalogContext';
@@ -64,6 +65,13 @@ const Account = lazyWithRetry(() => import('./pages/Account').then((m) => ({ def
 const Settings = lazyWithRetry(() => import('./pages/Settings').then((m) => ({ default: m.Settings })));
 const HelpCenter = lazyWithRetry(() => import('./pages/HelpCenter').then((m) => ({ default: m.HelpCenter })));
 const Login = lazyWithRetry(() => import('./pages/Login').then((m) => ({ default: m.Login })));
+
+// Web-only Android APK download prompt: never loaded or mounted inside Capacitor native APKs.
+const AppDownloadPrompt = Capacitor.isNativePlatform()
+  ? null
+  : lazyWithRetry(() =>
+      import('./components/AppDownloadPrompt').then((m) => ({ default: m.AppDownloadPrompt })),
+    );
 
 /**
  * Open Layout for catalog browsing: allows guests and authenticated users
@@ -288,6 +296,11 @@ export default function App() {
                     {/* Fallback to home */}
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
+                  {AppDownloadPrompt && (
+                    <Suspense fallback={null}>
+                      <AppDownloadPrompt />
+                    </Suspense>
+                  )}
                 </UIProvider>
               </CommunityProvider>
             </ToastProvider>
