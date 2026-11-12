@@ -13,6 +13,7 @@ import { HoverPreview } from './components/HoverPreview';
 import { MovieDetailsModal } from './components/MovieDetailsModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { PageLoader } from './components/PageLoader';
+import { ActivityTracker } from './components/ActivityTracker';
 import './styles/global.css';
 
 /**
@@ -21,15 +22,31 @@ import './styles/global.css';
  * might request 404 chunks. This intercepts the dynamic import failure, forces a quick
  * reload to get the new deployment bundle, and prevents the "Something went wrong" crash screen.
  */
+function safeSessionGet(key: string): string | null {
+  try {
+    return window.sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeSessionSet(key: string, value: string): void {
+  try {
+    window.sessionStorage.setItem(key, value);
+  } catch {
+    // ignore storage restriction
+  }
+}
+
 function lazyWithRetry<T extends React.ComponentType<any>>(
   factory: () => Promise<{ default: T }>
 ) {
   return lazy(async () => {
-    const isRetry = window.sessionStorage.getItem('vybe_chunk_retry') === 'true';
+    const isRetry = safeSessionGet('vybe_chunk_retry') === 'true';
 
     try {
       const module = await factory();
-      window.sessionStorage.setItem('vybe_chunk_retry', 'false');
+      safeSessionSet('vybe_chunk_retry', 'false');
       return module;
     } catch (error: any) {
       const isDynamicImportError =
@@ -39,7 +56,7 @@ function lazyWithRetry<T extends React.ComponentType<any>>(
         error?.name === 'ChunkLoadError';
 
       if (!isRetry || isDynamicImportError) {
-        window.sessionStorage.setItem('vybe_chunk_retry', 'true');
+        safeSessionSet('vybe_chunk_retry', 'true');
         window.location.reload();
         return new Promise<{ default: T }>(() => {});
       }
@@ -65,6 +82,9 @@ const Account = lazyWithRetry(() => import('./pages/Account').then((m) => ({ def
 const Settings = lazyWithRetry(() => import('./pages/Settings').then((m) => ({ default: m.Settings })));
 const HelpCenter = lazyWithRetry(() => import('./pages/HelpCenter').then((m) => ({ default: m.HelpCenter })));
 const Login = lazyWithRetry(() => import('./pages/Login').then((m) => ({ default: m.Login })));
+const AdminDashboard = lazyWithRetry(() =>
+  import('./pages/admin/AdminDashboard').then((m) => ({ default: m.AdminDashboard }))
+);
 
 // Web-only Android APK download prompt: never loaded or mounted inside Capacitor native APKs.
 const AppDownloadPrompt = Capacitor.isNativePlatform()
@@ -72,6 +92,18 @@ const AppDownloadPrompt = Capacitor.isNativePlatform()
   : lazyWithRetry(() =>
       import('./components/AppDownloadPrompt').then((m) => ({ default: m.AppDownloadPrompt })),
     );
+
+function RouteScopedDownloadPrompt() {
+  const location = useLocation();
+  if (!AppDownloadPrompt || location.pathname.startsWith('/admin')) {
+    return null;
+  }
+  return (
+    <Suspense fallback={null}>
+      <AppDownloadPrompt />
+    </Suspense>
+  );
+}
 
 /**
  * Open Layout for catalog browsing: allows guests and authenticated users
@@ -169,6 +201,7 @@ export default function App() {
             <CatalogProvider>
               <ToastProvider>
                 <NetworkStatusMonitor />
+                <ActivityTracker />
                 <CommunityProvider>
                   <UIProvider>
                   <Routes>
@@ -293,14 +326,21 @@ export default function App() {
                     />
                     <Route path="/help-center" element={<Navigate to="/help" replace />} />
 
+                    {/* Separate isolated Admin Dashboard & Single-Login Monitor */}
+                    <Route
+                      path="/admin"
+                      element={
+                        <Suspense fallback={<PageLoader />}>
+                          <AdminDashboard />
+                        </Suspense>
+                      }
+                    />
+                    <Route path="/admin/*" element={<Navigate to="/admin" replace />} />
+
                     {/* Fallback to home */}
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
-                  {AppDownloadPrompt && (
-                    <Suspense fallback={null}>
-                      <AppDownloadPrompt />
-                    </Suspense>
-                  )}
+                  <RouteScopedDownloadPrompt />
                 </UIProvider>
               </CommunityProvider>
             </ToastProvider>

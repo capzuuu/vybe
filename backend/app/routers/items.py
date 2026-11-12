@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from threading import Lock
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Path, status
+from fastapi import APIRouter, HTTPException, Path, Response, status
 from pydantic import BaseModel, Field, field_validator
 
 router = APIRouter(prefix="/items", tags=["items"])
@@ -72,15 +72,17 @@ _items_db: List[Item] = [
 
 
 @router.get("", response_model=List[Item])
-def get_items():
+def get_items(response: Response):
     """Retrieve all items."""
+    response.headers["Cache-Control"] = "no-store"
     with _items_lock:
         return list(_items_db)
 
 
 @router.get("/{item_id}", response_model=Item)
-def get_item(item_id: int = Path(..., gt=0)):
+def get_item(response: Response, item_id: int = Path(..., gt=0)):
     """Retrieve a single item by ID."""
+    response.headers["Cache-Control"] = "no-store"
     with _items_lock:
         for item in _items_db:
             if item.id == item_id:

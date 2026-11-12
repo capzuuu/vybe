@@ -120,6 +120,10 @@ class RateLimitMiddleware:
             await self.app(scope, receive, send)
             return
 
+        if scope.get("method") == "OPTIONS":
+            await self.app(scope, receive, send)
+            return
+
         path = scope.get("path", "")
         if path in ("/health", "/api/health", "/docs", "/redoc", "/openapi.json"):
             await self.app(scope, receive, send)

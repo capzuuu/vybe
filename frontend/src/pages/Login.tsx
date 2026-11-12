@@ -64,8 +64,12 @@ export function Login() {
       if (remaining <= 0) {
         setLockoutRemaining(0);
         setFailedAttempts(0);
-        localStorage.removeItem(LOCKOUT_STORAGE_KEY);
-        localStorage.removeItem(ATTEMPTS_STORAGE_KEY);
+        try {
+          localStorage.removeItem(LOCKOUT_STORAGE_KEY);
+          localStorage.removeItem(ATTEMPTS_STORAGE_KEY);
+        } catch {
+          // ignore restricted storage
+        }
         setErrorMsg(null);
       } else {
         setLockoutRemaining(remaining);
@@ -147,8 +151,12 @@ export function Login() {
       if (mode === 'signin') {
         await signIn(cleanEmail, password);
         // Successful login -> clear lockout and failed attempts counter
-        localStorage.removeItem(LOCKOUT_STORAGE_KEY);
-        localStorage.removeItem(ATTEMPTS_STORAGE_KEY);
+        try {
+          localStorage.removeItem(LOCKOUT_STORAGE_KEY);
+          localStorage.removeItem(ATTEMPTS_STORAGE_KEY);
+        } catch {
+          // ignore restricted storage
+        }
         setFailedAttempts(0);
         setLockoutRemaining(0);
         navigate(getDestination(), { replace: true });
@@ -165,11 +173,19 @@ export function Login() {
       if (mode === 'signin') {
         const nextAttempts = failedAttempts + 1;
         setFailedAttempts(nextAttempts);
-        localStorage.setItem(ATTEMPTS_STORAGE_KEY, String(nextAttempts));
+        try {
+          localStorage.setItem(ATTEMPTS_STORAGE_KEY, String(nextAttempts));
+        } catch {
+          // ignore restricted storage
+        }
 
         if (nextAttempts >= MAX_ATTEMPTS) {
           const unlockTime = Date.now() + LOCKOUT_DURATION_MS;
-          localStorage.setItem(LOCKOUT_STORAGE_KEY, String(unlockTime));
+          try {
+            localStorage.setItem(LOCKOUT_STORAGE_KEY, String(unlockTime));
+          } catch {
+            // ignore restricted storage
+          }
           setLockoutRemaining(Math.ceil(LOCKOUT_DURATION_MS / 1000));
           setErrorMsg('Too many failed attempts. Sign in has been locked for 5 minutes.');
         } else {

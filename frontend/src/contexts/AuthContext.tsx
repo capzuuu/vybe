@@ -8,6 +8,7 @@ import {
   signInWithGoogle,
   signOutSupabase,
 } from '../lib/supabase';
+import { setActiveViewerAuthContext } from '../services/realtimeMonitorService';
 
 interface AuthContextType {
   user: User | null;
@@ -31,6 +32,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const isConfigured = isSupabaseConfigured();
+
+  useEffect(() => {
+    setActiveViewerAuthContext(user?.id ?? null, session?.access_token);
+  }, [user?.id, session?.access_token]);
 
   useEffect(() => {
     let mounted = true;

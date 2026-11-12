@@ -6,6 +6,7 @@ import vybeLogo from '../assets/vybe-logo.png';
 import { useDetails } from '../contexts/UIContext';
 import { useToast } from '../contexts/ToastContext';
 import { useLockBodyScroll } from '../hooks';
+import { trackApkDownload } from '../services/realtimeMonitorService';
 import './app-download-prompt.css';
 
 const DISMISS_STORAGE_KEY = 'vybe_android_app_prompt_dismissed';
@@ -115,6 +116,7 @@ export function AppDownloadPrompt() {
     downloadTriggeredRef.current = true;
     persistPromptDismissal();
     setDismissed(true);
+    trackApkDownload('popup');
     showToast('Downloading Vybe Android app (Vybe.apk)…', { icon: 'check' });
     // Let the native anchor download initiate before transitioning out.
     if (downloadStartTimerRef.current) window.clearTimeout(downloadStartTimerRef.current);

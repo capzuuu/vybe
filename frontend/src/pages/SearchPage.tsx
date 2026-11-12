@@ -5,11 +5,22 @@ import { useDebounce } from '../hooks';
 import { searchTitlesLive, type SearchResult } from '../services/catalogService';
 import { MovieCard } from '../components/MovieCard';
 import { LoadingSkeleton } from '../components/ui/LoadingSkeleton';
-import { Search as SearchIcon, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import type { Title } from '../types';
 
-// In-memory instant search cache
+// Bounded in-memory instant search cache (LRU cap prevents heap growth)
 const searchCache = new Map<string, SearchResult>();
+const MAX_SEARCH_CACHE_ENTRIES = 60;
+
+function setSearchCacheEntry(key: string, value: SearchResult): void {
+  if (searchCache.has(key)) searchCache.delete(key);
+  searchCache.set(key, value);
+  while (searchCache.size > MAX_SEARCH_CACHE_ENTRIES) {
+    const oldestKey = searchCache.keys().next().value;
+    if (oldestKey === undefined) break;
+    searchCache.delete(oldestKey);
+  }
+}
 
 export function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -49,7 +60,7 @@ export function SearchPage() {
     searchTitlesLive(q, titlesRef.current)
       .then((res) => {
         if (!cancelled) {
-          searchCache.set(q, res);
+          setSearchCacheEntry(q, res);
           setResults(res.results);
           setSuggestions(res.suggestions);
           registerTitles(res.results);
@@ -116,7 +127,7 @@ export function SearchPage() {
       ) : results.length === 0 ? (
         <div className="empty">
           <div className="empty__icon">
-            <SearchIcon size={40} />
+            <Search size={40} />
           </div>
           <h2>No matches found for "{query}" on TMDB</h2>
           <p>

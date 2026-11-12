@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { Capacitor, SystemBars } from '@capacitor/core';
+import { Capacitor, SystemBars, type PluginListenerHandle } from '@capacitor/core';
+import { App as CapApp } from '@capacitor/app';
 import { ScreenOrientation } from '@capacitor/screen-orientation';
 import {
   ArrowLeft,
@@ -19,6 +20,7 @@ import { useCatalog } from '../contexts/CatalogContext';
 import { useLibrary } from '../contexts/ProfileContext';
 import { getVidlinkUrl } from '../utils/tmdb';
 import { fetchTitleById } from '../services/tmdbService';
+import { reportWatchingActivity, clearWatchingActivity } from '../services/realtimeMonitorService';
 import type { Episode, Season, Title } from '../types';
 import './watch.css';
 
@@ -233,14 +235,44 @@ export function Watch() {
     };
   }, [episodesMenuOpen]);
 
-  // Track and save progress with lower timer frequency (30s) + clean unmount/background flush
+  // Clear live watching presence when leaving /watch cleanly
+  const activeTitleIdRef = useRef<string | undefined>(id);
+  activeTitleIdRef.current = title?.id || id;
+  useEffect(() => {
+    return () => {
+      clearWatchingActivity(activeTitleIdRef.current);
+    };
+  }, [id]);
+
+  // Track and save progress (30s DB persistence + live telemetry sync + unmount/background flush)
   useEffect(() => {
     if (!title) return;
     const existing = getProgress(title.id);
     let currentPos = existing?.position && existing.position > 60 ? existing.position : 300;
-    const dur = Math.max(60, (title.runtime || 120) * 60);
+    const runtimeMinutes =
+      (title.type === 'series' ? activeEpisode?.duration : undefined) ||
+      title.runtime ||
+      (title.type === 'series' ? 48 : 115);
+    const dur = Math.max(60, runtimeMinutes * 60);
     const episodeId = activeEpisode?.id || existing?.episodeId;
+    const startedAt = new Date().toISOString();
     let lastTickAt = Date.now();
+    let tickCount = 0;
+
+    const pushLiveWatching = () => {
+      reportWatchingActivity({
+        titleId: title.id,
+        titleName: title.name,
+        titleType: title.type,
+        poster: title.poster || title.backdrop || '',
+        season: title.type === 'series' ? currentSeason : undefined,
+        episode: title.type === 'series' ? currentEpisodeNum : undefined,
+        episodeName: title.type === 'series' ? activeEpisode?.name : undefined,
+        positionSec: currentPos,
+        durationSec: dur,
+        startedAt,
+      });
+    };
 
     const flush = (advanceElapsed: boolean) => {
       if (advanceElapsed) {
@@ -254,38 +286,82 @@ export function Watch() {
         position: currentPos,
         duration: dur,
       });
+      pushLiveWatching();
     };
 
-    // Initial save
+    // Initial save + live broadcast
     flush(false);
 
-    // Advance progress every 30s while watch page is visible/active
+    // Advance progress every 15s locally/live store; flush DB every 30s
     const timer = window.setInterval(() => {
-      if (document.visibilityState === 'hidden') return;
       lastTickAt = Date.now();
-      currentPos = Math.min(dur, currentPos + 30);
-      flush(false);
-    }, 30000);
+      currentPos = Math.min(dur, currentPos + 15);
+      tickCount += 1;
+      if (tickCount % 2 === 0) {
+        flush(false);
+      } else {
+        pushLiveWatching();
+      }
+    }, 15000);
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
         flush(true);
       } else {
         lastTickAt = Date.now();
+        pushLiveWatching();
       }
     };
     const handlePageHide = () => flush(true);
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('pagehide', handlePageHide);
+    window.addEventListener('vybe:app-exit', handlePageHide);
+
+    let disposed = false;
+    let appStateHandle: PluginListenerHandle | null = null;
+    if (Capacitor.isNativePlatform()) {
+      CapApp.addListener('appStateChange', ({ isActive }) => {
+        if (disposed) return;
+        if (!isActive) {
+          flush(true);
+        } else {
+          lastTickAt = Date.now();
+          pushLiveWatching();
+        }
+      })
+        .then((handle) => {
+          if (disposed) {
+            void handle.remove();
+          } else {
+            appStateHandle = handle;
+          }
+        })
+        .catch(() => {});
+    }
 
     return () => {
+      disposed = true;
       window.clearInterval(timer);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('pagehide', handlePageHide);
-      flush(true);
+      window.removeEventListener('vybe:app-exit', handlePageHide);
+      if (appStateHandle) {
+        void appStateHandle.remove();
+        appStateHandle = null;
+      }
+      if (document.visibilityState !== 'hidden') {
+        const elapsedSec = Math.max(0, Math.round((Date.now() - lastTickAt) / 1000));
+        currentPos = Math.min(dur, currentPos + elapsedSec);
+      }
+      saveProgressRef.current({
+        titleId: title.id,
+        episodeId,
+        position: currentPos,
+        duration: dur,
+      });
     };
-  }, [title?.id, activeEpisode?.id]);
+  }, [title?.id, activeEpisode?.id, currentSeason, currentEpisodeNum]);
 
   // Fullscreen toggle with native landscape orientation lock on Capacitor
   const toggleFullscreen = () => {

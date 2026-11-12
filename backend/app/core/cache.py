@@ -4,6 +4,14 @@ from collections import OrderedDict
 from typing import Any, Awaitable, Callable, Dict, Optional, Tuple
 
 
+def _consume_future_exception(fut: asyncio.Future) -> None:
+    if not fut.cancelled():
+        try:
+            fut.exception()
+        except Exception:
+            pass
+
+
 class LRUTTLCache:
     """
     High-speed in-memory LRU Cache with Time-To-Live (TTL) expiration,
@@ -96,6 +104,7 @@ class LRUTTLCache:
 
         loop = asyncio.get_running_loop()
         future: asyncio.Future = loop.create_future()
+        future.add_done_callback(_consume_future_exception)
         self._in_flight[key] = future
 
         try:

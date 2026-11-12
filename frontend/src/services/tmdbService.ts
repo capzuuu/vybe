@@ -18,8 +18,10 @@ const getSecureKey = (): string => {
 
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 const RAW_API_BASE = ((import.meta as any).env?.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '');
-const PROXY_TIMEOUT_MS = 4500;
+const PROXY_TIMEOUT_MS = 2800;
 const DIRECT_TIMEOUT_MS = 9000;
+const PROXY_COOLDOWN_MS = 60_000;
+let proxyCooldownUntil = 0;
 
 function getProxyUrl(cleanEndpoint: string, paramQuery: string): string | null {
   const isNative = Capacitor.isNativePlatform();
@@ -32,7 +34,12 @@ function getProxyUrl(cleanEndpoint: string, paramQuery: string): string | null {
   return `${base}/api/v1/titles/proxy/${cleanEndpoint}${paramQuery ? `?${paramQuery}` : ''}`;
 }
 
-async function fetchJsonWithTimeout<T>(url: string, timeoutMs: number): Promise<T | null> {
+type ProxyFetchResult<T> =
+  | { status: 'ok'; data: T }
+  | { status: 'client-error' }
+  | { status: 'unavailable' };
+
+async function fetchProxyJsonWithTimeout<T>(url: string, timeoutMs: number): Promise<ProxyFetchResult<T>> {
   const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
   const timer = controller ? window.setTimeout(() => controller.abort(), timeoutMs) : null;
   try {
@@ -40,14 +47,17 @@ async function fetchJsonWithTimeout<T>(url: string, timeoutMs: number): Promise<
       signal: controller?.signal,
       headers: { Accept: 'application/json' },
     });
-    if (!res.ok) return null;
+    if (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429) {
+      return { status: 'client-error' };
+    }
+    if (!res.ok) return { status: 'unavailable' };
     const contentType = res.headers.get('content-type') || '';
     if (!contentType.toLowerCase().includes('application/json')) {
-      return null;
+      return { status: 'unavailable' };
     }
-    return (await res.json()) as T;
+    return { status: 'ok', data: (await res.json()) as T };
   } catch {
-    return null;
+    return { status: 'unavailable' };
   } finally {
     if (timer !== null) window.clearTimeout(timer);
   }
@@ -193,11 +203,15 @@ function setStoredCache(key: string, data: any): void {
 }
 
 async function fetchLiveTMDBPayload<T>(cleanEndpoint: string, params: Record<string, string>, paramQuery: string): Promise<T> {
-  const proxyUrl = getProxyUrl(cleanEndpoint, paramQuery);
+  const proxyUrl = Date.now() >= proxyCooldownUntil ? getProxyUrl(cleanEndpoint, paramQuery) : null;
   if (proxyUrl) {
-    const proxyData = await fetchJsonWithTimeout<T>(proxyUrl, PROXY_TIMEOUT_MS);
-    if (proxyData) {
-      return proxyData;
+    const proxyRes = await fetchProxyJsonWithTimeout<T>(proxyUrl, PROXY_TIMEOUT_MS);
+    if (proxyRes.status === 'ok') {
+      proxyCooldownUntil = 0;
+      return proxyRes.data;
+    }
+    if (proxyRes.status === 'unavailable') {
+      proxyCooldownUntil = Date.now() + PROXY_COOLDOWN_MS;
     }
   }
 

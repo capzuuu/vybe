@@ -12,6 +12,7 @@ import { Logo } from './ui/TitleArt';
 import { SmartImage } from './ui/SmartImage';
 import { RadialMenu } from './RadialMenu';
 import { usePlayTitle } from '../hooks';
+import { trackApkDownload } from '../services/realtimeMonitorService';
 import './navbar.css';
 
 export function Navbar() {
@@ -353,6 +354,7 @@ export function Navbar() {
                           download="Vybe.apk"
                           className="profile-dropdown__item"
                           onClick={() => {
+                            trackApkDownload('profile_menu');
                             showToast('Downloading Vybe Android app (Vybe.apk)…', { icon: 'check' });
                             window.setTimeout(() => setProfileOpen(false), 80);
                           }}
