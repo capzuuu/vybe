@@ -126,11 +126,14 @@ export function initCapacitor(): void {
       return;
     }
 
-    // 4. Navigate back in history, or exit cleanly if at the root screen
+    // 4. Navigate back in history, or flush live telemetry and exit cleanly at root
     if (canGoBack && window.location.pathname !== '/') {
       window.history.back();
     } else {
-      CapApp.exitApp();
+      window.dispatchEvent(new CustomEvent('vybe:app-exit'));
+      window.setTimeout(() => {
+        CapApp.exitApp();
+      }, 180);
     }
   }).catch(() => {});
 }

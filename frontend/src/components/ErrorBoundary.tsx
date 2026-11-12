@@ -27,11 +27,16 @@ export class ErrorBoundary extends Component<Props, State> {
       error?.name === 'ChunkLoadError';
 
     if (isChunkError && typeof window !== 'undefined') {
-      const lastReload = window.sessionStorage.getItem('vybe_chunk_reload');
-      const now = Date.now();
-      // Auto-reload once to fetch new deployment assets without showing an error screen
-      if (!lastReload || now - parseInt(lastReload, 10) > 10000) {
-        window.sessionStorage.setItem('vybe_chunk_reload', now.toString());
+      try {
+        const lastReload = window.sessionStorage.getItem('vybe_chunk_reload');
+        const now = Date.now();
+        // Auto-reload once to fetch new deployment assets without showing an error screen
+        if (!lastReload || now - parseInt(lastReload, 10) > 10000) {
+          window.sessionStorage.setItem('vybe_chunk_reload', now.toString());
+          window.location.reload();
+          return { hasError: false, error: null };
+        }
+      } catch {
         window.location.reload();
         return { hasError: false, error: null };
       }
@@ -51,10 +56,14 @@ export class ErrorBoundary extends Component<Props, State> {
       error?.name === 'ChunkLoadError';
 
     if (isChunkError && typeof window !== 'undefined') {
-      const lastReload = window.sessionStorage.getItem('vybe_chunk_reload');
-      const now = Date.now();
-      if (!lastReload || now - parseInt(lastReload, 10) > 10000) {
-        window.sessionStorage.setItem('vybe_chunk_reload', now.toString());
+      try {
+        const lastReload = window.sessionStorage.getItem('vybe_chunk_reload');
+        const now = Date.now();
+        if (!lastReload || now - parseInt(lastReload, 10) > 10000) {
+          window.sessionStorage.setItem('vybe_chunk_reload', now.toString());
+          window.location.reload();
+        }
+      } catch {
         window.location.reload();
       }
     }

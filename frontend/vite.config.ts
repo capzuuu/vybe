@@ -19,7 +19,7 @@ export default defineConfig(({ mode }) => {
     },
     esbuild: isProd ? { drop: ['debugger'] } : undefined,
     build: {
-      target: 'esnext',
+      target: ['es2022', 'chrome100', 'safari15'],
       cssCodeSplit: true,
       chunkSizeWarningLimit: 800,
       sourcemap: false,

@@ -27,8 +27,13 @@ class SecurityAndSpeedTests(unittest.TestCase):
         self.assertEqual(res.headers.get("X-Content-Type-Options"), "nosniff")
         self.assertEqual(res.headers.get("X-Frame-Options"), "DENY")
         self.assertEqual(res.headers.get("Cross-Origin-Resource-Policy"), "cross-origin")
+        self.assertEqual(res.headers.get("Cache-Control"), "no-store")
         self.assertIn("max-age=31536000", res.headers.get("Strict-Transport-Security", ""))
         self.assertIn("X-Response-Time", res.headers)
+
+        items_res = self.client.get("/api/v1/items")
+        self.assertEqual(items_res.status_code, 200)
+        self.assertEqual(items_res.headers.get("Cache-Control"), "no-store")
 
     def test_cors_blocks_untrusted_origin_and_allows_trusted(self):
         evil = self.client.options(
@@ -127,16 +132,48 @@ class SecurityAndSpeedTests(unittest.TestCase):
             return statuses[0]
 
         async def scenario():
+            # OPTIONS preflights should not consume rate limit quota
+            preflight_statuses = []
+            async def receive():
+                return {"type": "http.request", "body": b""}
+            async def send(msg):
+                if msg["type"] == "http.response.start":
+                    preflight_statuses.append(msg["status"])
+            await limiter(
+                {
+                    "type": "http",
+                    "method": "OPTIONS",
+                    "path": "/api/v1/titles/trending",
+                    "headers": [],
+                    "client": ("10.0.0.1", 12345),
+                },
+                receive,
+                send,
+            )
+
             s1 = await send_req("10.0.0.1")
             s2 = await send_req("10.0.0.1")
             s3 = await send_req("10.0.0.1")
             for idx in range(12):
                 await send_req(f"10.0.1.{idx}")
-            return s1, s2, s3, len(limiter.requests)
+            return preflight_statuses[0], s1, s2, s3, len(limiter.requests)
 
-        s1, s2, s3, tracked_count = asyncio.run(scenario())
-        self.assertEqual((s1, s2, s3), (200, 200, 429))
+        pre, s1, s2, s3, tracked_count = asyncio.run(scenario())
+        self.assertEqual((pre, s1, s2, s3), (200, 200, 200, 429))
         self.assertLessEqual(tracked_count, 5)
+
+    def test_cache_failure_cleans_in_flight_without_poisoning(self):
+        cache = LRUTTLCache(max_size=10, default_ttl=60)
+
+        async def failing_loader():
+            raise RuntimeError("upstream down")
+
+        async def scenario():
+            with self.assertRaises(RuntimeError):
+                await cache.get_or_load("bad-key", failing_loader)
+            self.assertEqual(cache.stats()["in_flight"], 0)
+
+        asyncio.run(scenario())
 
 
 if __name__ == "__main__":

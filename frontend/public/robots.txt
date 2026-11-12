@@ -1,8 +1,10 @@
 User-agent: *
 Allow: /
+Disallow: /admin
 Disallow: /account
 Disallow: /settings
 Disallow: /profiles
 
 Sitemap: https://vybe.tv/sitemap.xml
+
 

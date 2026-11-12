@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { useToast } from '../contexts/ToastContext';
 import { useLockBodyScroll } from '../hooks';
+import { trackApkDownload } from '../services/realtimeMonitorService';
 import gcashLogo from '../assets/gcash-logo.svg';
 import gcashQr from '../assets/gcash-qr.jpg';
 import {
@@ -328,9 +329,10 @@ export function Footer() {
               href="/Vybe.apk"
               download="Vybe.apk"
               className="footer__apk-btn"
-              onClick={() =>
-                showToast('Downloading Vybe Android app (Vybe.apk)…', { icon: 'check' })
-              }
+              onClick={() => {
+                trackApkDownload('footer');
+                showToast('Downloading Vybe Android app (Vybe.apk)…', { icon: 'check' });
+              }}
             >
               <Download size={14} aria-hidden="true" />
               <span>Download APK</span>
