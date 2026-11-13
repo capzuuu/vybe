@@ -1,3 +1,5 @@
+import { Capacitor } from '@capacitor/core';
+
 /**
  * Vybe Shield — Lightweight Ad & Popup Blocker for embedded streaming.
  * Neutralizes popup ads, popunders, and malicious postMessage hooks without layout thrashing.
@@ -32,6 +34,15 @@ const ALLOWED_POPUP_HOSTS = [
   'github.com',
 ];
 
+const ALLOWED_ADSENSE_HOSTS = [
+  'googlesyndication.com',
+  'googleadservices.com',
+  'doubleclick.net',
+  'adservice.google.com',
+  'adtrafficquality.google',
+  'fundingchoicesmessages.google.com',
+];
+
 interface AdBlockStats {
   blockedPopups: number;
   blockedScripts: number;
@@ -45,6 +56,10 @@ const stats: AdBlockStats = {
 };
 
 let initialized = false;
+
+function matchesAllowedHost(host: string, allowedHosts: readonly string[]): boolean {
+  return allowedHosts.some((allowed) => host === allowed || host.endsWith(`.${allowed}`));
+}
 
 function isAllowedPopupUrl(url?: string | URL): boolean {
   if (!url) return false;
@@ -60,14 +75,25 @@ function isAllowedPopupUrl(url?: string | URL): boolean {
     if (parsed.origin === window.location.origin) {
       return true;
     }
-    const host = parsed.hostname.toLowerCase();
-    return ALLOWED_POPUP_HOSTS.some((allowed) => host === allowed || host.endsWith(`.${allowed}`));
+    return matchesAllowedHost(parsed.hostname.toLowerCase(), ALLOWED_POPUP_HOSTS);
+  } catch {
+    return false;
+  }
+}
+
+function isAllowedAdSenseUrl(src: string): boolean {
+  if (Capacitor.isNativePlatform()) return false;
+  try {
+    const parsed = new URL(src, window.location.origin);
+    if (parsed.protocol !== 'https:') return false;
+    return matchesAllowedHost(parsed.hostname.toLowerCase(), ALLOWED_ADSENSE_HOSTS);
   } catch {
     return false;
   }
 }
 
 function isAdSource(src: string): boolean {
+  if (isAllowedAdSenseUrl(src)) return false;
   const lower = src.toLowerCase();
   return AD_DOMAINS.some((domain) => lower.includes(domain));
 }
